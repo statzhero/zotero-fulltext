@@ -35,7 +35,7 @@ def create_server(settings: Settings | None = None):
     service = ZoteroFulltextService(runtime_settings)
     service.try_startup_sync()
 
-    mcp = FastMCP("zotero-fulltext")
+    mcp = FastMCP("zotero")
 
     def safe_call(callback, *args, **kwargs) -> dict[str, Any]:
         try:

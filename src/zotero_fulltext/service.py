@@ -352,6 +352,8 @@ class ZoteroFulltextService:
         return {
             "citekey": record.citation_key,
             "item_key": record.item_key,
+            "item_uri": f"zotero://item/{record.citation_key}",
+            "fulltext_uri": f"zotero://fulltext/{record.citation_key}",
             "title": record.title,
             "authors": record.creators,
             "author_summary": record.author_summary,

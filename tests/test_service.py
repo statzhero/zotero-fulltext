@@ -119,6 +119,20 @@ class ZoteroFulltextServiceTest(unittest.TestCase):
         self.assertFalse(lookup["found"])
         self.assertEqual(search["results"], [])
 
+    def test_lookup_includes_resource_uris(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings = self.make_settings(temp_dir)
+            client = FakeClient()
+            index = MetadataIndex.rebuild_from_items(
+                [make_item("AAA111", title="Paper", citation_key="paper2020")],
+                5,
+            )
+            service = ZoteroFulltextService(settings, client=client, index=index)
+            result = service.lookup("paper2020")
+        self.assertTrue(result["found"])
+        self.assertEqual(result["item"]["item_uri"], "zotero://item/paper2020")
+        self.assertEqual(result["item"]["fulltext_uri"], "zotero://fulltext/paper2020")
+
     def test_fulltext_uses_cached_paragraphs_on_warm_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             settings = self.make_settings(temp_dir)
