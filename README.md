@@ -82,7 +82,7 @@ If you want the optional Claude Code slash commands in this repo, `uv` is recomm
 
 ### Client Setup
 
-Use `uvx zotero-fulltext` if you installed from PyPI, or use a repo-local executable such as `/path/to/zotero-mcp/.venv/bin/zotero-fulltext` if you are running from a checkout.
+Use `uvx zotero-fulltext` if you installed from PyPI, or use a repo-local executable such as `/path/to/zotero-fulltext/.venv/bin/zotero-fulltext` if you are running from a checkout.
 
 For the best resource UX, configure the MCP server with the short name `zotero` even though the package name is `zotero-fulltext`. That keeps resource mentions short, for example `@zotero:zotero://item/smith2020`.
 
@@ -117,7 +117,7 @@ Or add it to `.mcp.json` in your project:
 Option B: local plugin from this repo, which adds four slash commands and starts the same MCP server for you.
 
 ```bash
-claude --plugin-dir /absolute/path/to/zotero-mcp
+claude --plugin-dir /absolute/path/to/zotero-fulltext
 ```
 
 The plugin adds exactly these commands:
