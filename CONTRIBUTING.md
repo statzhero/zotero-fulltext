@@ -18,4 +18,4 @@ The project is intentionally narrow:
 - citekey-native
 - optimized for bounded fulltext retrieval
 
-If you want to propose a broader feature, open an issue first so we can keep the surface area intentional.
+If you want to propose a broader feature, open an issue first.
