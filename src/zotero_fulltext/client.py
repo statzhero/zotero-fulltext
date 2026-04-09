@@ -70,12 +70,18 @@ class ZoteroClient:
         return True, versions, _header_int(response_headers, "Last-Modified-Version")
 
     def get_deleted(self, since: int) -> tuple[list[str], int | None]:
-        """Return deleted item keys since a given library version."""
+        """Return deleted item keys since a given library version.
+
+        Returns an empty list when the endpoint is unavailable (e.g. the
+        local Zotero API does not implement ``/deleted``).
+        """
         status, headers, payload = self._request_json(
             "GET",
             f"{self.settings.library_prefix}/deleted",
             params={"since": since},
         )
+        if status == 404:
+            return [], None
         if status != 200:
             raise ZoteroClientError(f"Unexpected Zotero status {status} while fetching deletes.")
         deleted_items = payload.get("items", []) if isinstance(payload, dict) else []

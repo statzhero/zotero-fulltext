@@ -6,5 +6,5 @@ build/
 dist/
 *.pyc
 .env
-PLAN.md
 demo.tape
+_workflow

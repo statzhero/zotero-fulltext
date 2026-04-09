@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Fix: gracefully handle missing `/deleted` endpoint on local Zotero API
+
 ## 0.2.0
 
 - Published to PyPI (`uv tool install zotero-fulltext`)
