@@ -184,6 +184,14 @@ Other MCP servers for Zotero, with different design goals:
 - [kujenga/zotero-mcp](https://github.com/kujenga/zotero-mcp) — Minimal read-only server with Web API support via pyzotero. No citekey resolution or in-document search.
 - [kaliaboi/mcp-zotero](https://github.com/kaliaboi/mcp-zotero) — Cloud-only (Zotero Web API). Metadata browsing, no fulltext.
 
+To remove an existing Zotero MCP server before switching:
+
+```bash
+claude mcp remove zotero
+```
+
+Or delete the `zotero` entry from `.mcp.json` / `claude_desktop_config.json` / `~/.codex/config.toml` manually.
+
 ## Requirements
 
 - Zotero 8+ with the local API enabled
