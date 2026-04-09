@@ -7,7 +7,7 @@
 
 Access your [Zotero](https://www.zotero.org/) library with your favorite AI tool.
 
-This MCP server for Zotero 8+ gives Claude and Codex citekey-native access to your library. It talks directly to Zotero's local API and aims to keep token usage low. Fulltext is fetched only on demand.
+This MCP server for Zotero 8+ gives Claude and Codex access to your library via search and citekyes. It talks directly to Zotero's local API and aims to keep token usage low. Fulltext is fetched only on demand.
 
 ## Quick Start
 
