@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "zotero",
-      "source": "statzhero/zotero-fulltext",
+      "source": "./",
       "description": "Claude Code slash commands for Zotero with citekeys and efficient fulltext access",
       "version": "0.2.0",
       "author": {
