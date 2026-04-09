@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Access your [Zotero](https://www.zotero.org/) library with your favorite AI tool.
+
 ![Demo](demo.gif)
 
 This MCP server for Zotero 8+ gives Claude and Codex access to your library via search and citekyes. It talks directly to Zotero's local API and aims to keep token usage low. Fulltext is fetched only on demand.
