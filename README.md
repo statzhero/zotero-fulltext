@@ -1,13 +1,8 @@
 # zotero-fulltext
 
-Access your Zotero library with your favorite AI tool.
+Access your [Zotero](https://www.zotero.org/) library with your favorite AI tool. Fast and token-efficient.
 
-This MCP server for Zotero 8+ that gives Claude and Codex citekey-native access to your library. Key features are:
-
-- Efficient fulltext retrieval
-- Keyword search over Zotero's own metadata and citekeys
-- Local-first: talks to Zotero's local API and uses Zotero's own index
-- No invented local matches when Zotero has no entry
+This MCP server for Zotero 8+ gives Claude and Codex citekey-native access to your library. It talks directly to Zotero's local API and returns bounded outputs to keep token usage low. Fulltext is fetched only on demand.
 
 ## Quick Start
 
@@ -20,7 +15,104 @@ uvx zotero-fulltext
 
 3. Add it to your client (see [Configuration](#configuration) below).
 
+## Commands
+
+If you use the optional Claude Code plugin from this repo, you get four slash commands:
+
+| Command | What it does |
+|---|---|
+| `/zotero:find <query>` | Search the whole library |
+| `/zotero:lookup <citekey>` | Exact citekey metadata lookup |
+| `/zotero:read <citekey>` | Numbered fulltext paragraphs |
+| `/zotero:within <citekey> <query>` | Search inside one paper's fulltext |
+
+`lookup` is lightweight metadata confirmation. `read` returns the actual paper text. `find` searches the whole library. `within` searches only one item's indexed fulltext.
+
+Without the plugin, all the same functionality is available through the MCP tools directly (see [Tools](#tools)).
+
+## Installation
+
+`uvx` runs the package in a temporary environment with no permanent install. This is the recommended approach:
+
+```bash
+uvx zotero-fulltext
+```
+
+For a persistent install (the command stays available across sessions):
+
+```bash
+uv tool install zotero-fulltext
+# or
+pipx install zotero-fulltext
+```
+
+If you want the optional Claude Code slash commands, clone this repo and point Claude Code at it (see [Configuration](#configuration)).
+
+## Configuration
+
+### Claude Code
+
+**Option A** (standard MCP setup):
+
+```bash
+claude mcp add --transport stdio --scope project zotero -- uvx zotero-fulltext
+```
+
+Or add to `.mcp.json` in your project:
+
+```json
+{
+  "mcpServers": {
+    "zotero": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["zotero-fulltext"]
+    }
+  }
+}
+```
+
+**Option B** (local plugin with slash commands):
+
+```bash
+claude --plugin-dir /absolute/path/to/zotero-fulltext
+```
+
+Then restart Claude Code if needed, run `/mcp` to confirm the server is connected, and test with `Look up citekey smith2020 in Zotero.` or use the slash commands.
+
+### Claude Desktop
+
+Add the server to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "zotero": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["zotero-fulltext"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop, open a chat, and confirm the server is available.
+
+### Codex
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.zotero]
+command = "uvx"
+args = ["zotero-fulltext"]
+```
+
+Restart Codex, then run `codex mcp list` to verify it is configured.
+
 ## Tools
+
+The server exposes five MCP tools. Clients call these directly; the slash commands above are convenience wrappers.
 
 ### `lookup(citekey)`
 
@@ -48,159 +140,6 @@ Fetches indexed attachment fulltext, splits it into numbered paragraphs, and ret
 
 Searches within a single item's paragraphized fulltext and returns matching paragraphs with surrounding context.
 
-## Resources
-
-The server exposes MCP resource templates:
-
-- `zotero://library` -- library summary
-- `zotero://item/{citekey}` -- item metadata
-- `zotero://fulltext/{citekey}` -- full text
-
-These are templates, not a persistent registry. If you know the citekey, you can read the resource directly.
-
-## Requirements
-
-- Zotero 8+ with the local API enabled
-- Python 3.11+
-- Better BibTeX (optional but recommended)
-
-## Installation
-
-```bash
-uvx zotero-fulltext
-```
-
-Or install persistently:
-
-```bash
-pipx install zotero-fulltext
-```
-
-If you want the optional Claude Code slash commands in this repo, `uv` is recommended so the plugin can start the server from the checkout.
-
-## Configuration
-
-### Client Setup
-
-Use `uvx zotero-fulltext` if you installed from PyPI, or use a repo-local executable such as `/path/to/zotero-fulltext/.venv/bin/zotero-fulltext` if you are running from a checkout.
-
-For the best resource UX, configure the MCP server with the short name `zotero` even though the package name is `zotero-fulltext`. That keeps resource mentions short, for example `@zotero:zotero://item/smith2020`.
-
-### Claude Code Terminal
-
-You have two good options.
-
-Option A: standard MCP setup.
-
-```bash
-claude mcp add --transport stdio --scope project zotero -- uvx zotero-fulltext
-```
-
-Or add it to `.mcp.json` in your project:
-
-```json
-{
-  "mcpServers": {
-    "zotero": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["zotero-fulltext"],
-      "env": {
-        "ZOTERO_LIBRARY_TYPE": "user",
-        "ZOTERO_LIBRARY_ID": "0"
-      }
-    }
-  }
-}
-```
-
-Option B: local plugin from this repo, which adds four slash commands and starts the same MCP server for you.
-
-```bash
-claude --plugin-dir /absolute/path/to/zotero-fulltext
-```
-
-The plugin adds exactly these commands:
-
-- `/zotero:find <query>`
-- `/zotero:lookup <citekey>`
-- `/zotero:read <citekey>`
-- `/zotero:within <citekey> <query>`
-
-Then:
-
-1. Restart Claude Code if needed.
-2. Run `/mcp` to confirm the server is connected.
-3. Test with prompts like `Look up citekey smith2020 in Zotero.` or use the plugin commands above.
-
-### Claude App
-
-For Claude Desktop, add the server to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "zotero": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["zotero-fulltext"],
-      "env": {
-        "ZOTERO_LIBRARY_TYPE": "user",
-        "ZOTERO_LIBRARY_ID": "0"
-      }
-    }
-  }
-}
-```
-
-Then:
-
-1. Restart Claude Desktop.
-2. Open a chat and confirm the connector/server is available.
-3. Test with the same lookup, search, and fulltext prompts.
-
-Note: a Claude Desktop extension package (`.mcpb`) could be added later, but v1 uses the standard local MCP config path.
-
-### Codex Terminal
-
-Add to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.zotero]
-command = "uvx"
-args = ["zotero-fulltext"]
-
-[mcp_servers.zotero.env]
-ZOTERO_LIBRARY_TYPE = "user"
-ZOTERO_LIBRARY_ID = "0"
-```
-
-Then:
-
-1. Restart Codex terminal.
-2. Run `codex mcp list` to verify it is configured.
-3. Test with prompts like `Show the first 3 paragraphs of smith2020.` or `Search within smith2020 for correlated errors.`
-
-### Codex App
-
-The Codex app uses the same MCP configuration as Codex terminal, so the same `~/.codex/config.toml` entry applies.
-
-Then:
-
-1. Restart the Codex app.
-2. Start a new chat in the app.
-3. Test the same Zotero prompts you use in Codex terminal.
-
-### Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `ZOTERO_API_BASE_URL` | `http://127.0.0.1:23119/api` | Zotero local API endpoint |
-| `ZOTERO_LIBRARY_TYPE` | `user` | `user` or `group` |
-| `ZOTERO_LIBRARY_ID` | `0` | Library ID (0 for personal libraries) |
-| `ZOTERO_API_KEY` | -- | Required only for non-public remote libraries |
-| `ZOTERO_CACHE_DIR` | `~/.cache/zotero-fulltext` | Persistent index location |
-
 ## Design
 
 The server is intentionally small-surface and read-only. It relies on Zotero's own search index rather than building a second one.
@@ -212,35 +151,18 @@ The server is intentionally small-surface and read-only. It relies on Zotero's o
 - Item results include `item_uri` and `fulltext_uri` so clients can attach standard `zotero://...` resources directly.
 - If a lookup finds no citekey, it returns `found=false`. If a search finds nothing, it returns `results=[]`. There is no web fallback.
 
-## Claude UX
+## Roadmap
 
-If you use the optional Claude Code plugin in this repo, the intended command set is exactly four commands:
+- Remote API support (beyond local)
+- Write-back (notes, annotations)
+- Embeddings or semantic search
+- Web fallback for items not in the local library
 
-- `/zotero:find <query>` for whole-library search
-- `/zotero:lookup <citekey>` for exact citekey metadata lookup
-- `/zotero:read <citekey>` for numbered fulltext paragraphs
-- `/zotero:within <citekey> <query>` for search inside one paper
+## Requirements
 
-`lookup` is lightweight metadata confirmation. `read` is the actual paper text. `find` searches the whole library. `within` searches only one item's indexed fulltext.
-
-## Limits
-
-- Local API only (v1)
-- Read-only (no notes, annotations, or write-back)
-- No embeddings or separate semantic index
-- No built-in web fallback
-
-## Development
-
-```bash
-python -m unittest discover -s tests
-```
-
-Benchmark harness:
-
-```bash
-PYTHONPATH=src python scripts/benchmark.py --query "forecast errors" --citekey smith2020
-```
+- Zotero 8+ with the local API enabled
+- Python 3.11+
+- Better BibTeX (optional but recommended)
 
 ## License
 
