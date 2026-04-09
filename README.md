@@ -1,3 +1,8 @@
+[![MCP Server](https://badge.mcpx.dev?type=server&features=resources,tools)](https://modelcontextprotocol.io)
+[![PyPI](https://img.shields.io/pypi/v/zotero-fulltext)](https://pypi.org/project/zotero-fulltext/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+
 # zotero-fulltext
 
 Access your [Zotero](https://www.zotero.org/) library with your favorite AI tool.
@@ -38,16 +43,6 @@ The Claude Code plugin provides four slash commands:
 Without the plugin, all the same functionality is available through the MCP tools directly (see [Tools](#tools)).
 
 ## Installation
-
-```bash
-uv tool install zotero-fulltext
-# or
-pipx install zotero-fulltext
-```
-
-This makes the `zotero-fulltext` command permanently available. You can also use `uvx zotero-fulltext` to run without installing.
-
-## Configuration
 
 ### Claude Code (plugin with slash commands)
 
