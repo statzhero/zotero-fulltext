@@ -1,23 +1,35 @@
 # zotero-fulltext
 
-Access your [Zotero](https://www.zotero.org/) library with your favorite AI tool. Fast and token-efficient.
+Access your [Zotero](https://www.zotero.org/) library with your favorite AI tool.
 
 This MCP server for Zotero 8+ gives Claude and Codex citekey-native access to your library. It talks directly to Zotero's local API and aims to keep token usage low. Fulltext is fetched only on demand.
 
 ## Quick Start
 
 1. Make sure Zotero 8+ is running with the [local API enabled](https://www.zotero.org/support/kb/connector_zotero_unavailable) (Settings → Advanced → "Allow other applications on this computer to communicate with Zotero").
-2. Run the server:
+2. Install the server:
 
 ```bash
-uvx zotero-fulltext
+uv tool install zotero-fulltext
 ```
 
-3. Add it to your client (see [Configuration](#configuration) below).
+3. Add the plugin to Claude Code:
+
+```bash
+claude plugin add /absolute/path/to/zotero-fulltext
+```
+
+4. Restart Claude Code if needed, run `/mcp` to confirm the server is connected, and try a slash command:
+
+```
+/zotero:find attention
+```
+
+Also works with [Claude Desktop](#claude-desktop), [Codex](#codex), and as a [standalone MCP server](#configuration) without slash commands.
 
 ## Commands
 
-If you use the optional Claude Code plugin from this repo, you get four slash commands:
+The Claude Code plugin provides four slash commands:
 
 | Command | What it does |
 |---|---|
@@ -26,19 +38,11 @@ If you use the optional Claude Code plugin from this repo, you get four slash co
 | `/zotero:read <citekey>` | Numbered fulltext paragraphs |
 | `/zotero:within <citekey> <query>` | Search inside one paper's fulltext |
 
-`lookup` is lightweight metadata confirmation. `read` returns the actual paper text. `find` searches the whole library. `within` searches only one item's indexed fulltext.
+`find` searches the whole library. `lookup` is lightweight metadata confirmation. `read` returns the actual paper text. `within` searches only one item's indexed fulltext.
 
 Without the plugin, all the same functionality is available through the MCP tools directly (see [Tools](#tools)).
 
 ## Installation
-
-`uvx` runs the package in a temporary environment with no permanent install. This is the recommended approach:
-
-```bash
-uvx zotero-fulltext
-```
-
-For a persistent install (the command stays available across sessions):
 
 ```bash
 uv tool install zotero-fulltext
@@ -46,39 +50,25 @@ uv tool install zotero-fulltext
 pipx install zotero-fulltext
 ```
 
-If you want the optional Claude Code slash commands, clone this repo and point Claude Code at it (see [Configuration](#configuration)).
+This makes the `zotero-fulltext` command permanently available. You can also use `uvx zotero-fulltext` to run without installing.
 
 ## Configuration
 
-### Claude Code
+### Claude Code (plugin with slash commands)
 
-**Option A** (standard MCP setup):
-
-```bash
-claude mcp add --transport stdio --scope project zotero -- uvx zotero-fulltext
-```
-
-Or add to `.mcp.json` in your project:
-
-```json
-{
-  "mcpServers": {
-    "zotero": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["zotero-fulltext"]
-    }
-  }
-}
-```
-
-**Option B** (local plugin with slash commands):
+Clone this repo and add it as a plugin:
 
 ```bash
-claude --plugin-dir /absolute/path/to/zotero-fulltext
+claude plugin add /absolute/path/to/zotero-fulltext
 ```
 
-Then restart Claude Code if needed, run `/mcp` to confirm the server is connected, and test with `Look up citekey smith2020 in Zotero.` or use the slash commands.
+This registers the MCP server and adds the slash commands. Restart Claude Code if needed and run `/mcp` to confirm the server is connected.
+
+If you only want the MCP tools without slash commands:
+
+```bash
+claude mcp add --transport stdio --scope project zotero -- zotero-fulltext
+```
 
 ### Claude Desktop
 
@@ -89,8 +79,7 @@ Add the server to `claude_desktop_config.json`:
   "mcpServers": {
     "zotero": {
       "type": "stdio",
-      "command": "uvx",
-      "args": ["zotero-fulltext"]
+      "command": "zotero-fulltext"
     }
   }
 }
@@ -104,15 +93,25 @@ Add to `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.zotero]
-command = "uvx"
-args = ["zotero-fulltext"]
+command = "zotero-fulltext"
 ```
 
 Restart Codex, then run `codex mcp list` to verify it is configured.
 
+## Design
+
+The server is intentionally simple and read-only. It relies on Zotero's own search index rather than building a second one.
+
+- Startup builds a metadata index mapping citekeys to items and attachments.
+- Library changes are tracked with Zotero version headers and incremental sync.
+- Fulltext is fetched only on demand and cached in memory (TTL/LRU).
+- All outputs are bounded by default: 10 search hits, 80 paragraphs, 20 fulltext matches.
+- Item results include `item_uri` and `fulltext_uri` so clients can attach standard `zotero://...` resources directly.
+- If a lookup finds no citekey, it returns `found=false`. If a search finds nothing, it returns `results=[]`. There is no web fallback.
+
 ## Tools
 
-The server exposes five MCP tools. Clients call these directly; the slash commands above are convenience wrappers.
+The server exposes five MCP tools. The slash commands above are convenience wrappers.
 
 ### `lookup(citekey)`
 
@@ -140,16 +139,7 @@ Fetches indexed attachment fulltext, splits it into numbered paragraphs, and ret
 
 Searches within a single item's paragraphized fulltext and returns matching paragraphs with surrounding context.
 
-## Design
 
-The server is intentionally small-surface and read-only. It relies on Zotero's own search index rather than building a second one.
-
-- Startup builds a metadata index mapping citekeys to items and attachments.
-- Library changes are tracked with Zotero version headers and incremental sync.
-- Fulltext is fetched only on demand and cached in memory (TTL/LRU).
-- All outputs are bounded by default: 10 search hits, 80 paragraphs, 20 fulltext matches.
-- Item results include `item_uri` and `fulltext_uri` so clients can attach standard `zotero://...` resources directly.
-- If a lookup finds no citekey, it returns `found=false`. If a search finds nothing, it returns `results=[]`. There is no web fallback.
 
 ## Roadmap
 
@@ -157,6 +147,42 @@ The server is intentionally small-surface and read-only. It relies on Zotero's o
 - Write-back (notes, annotations)
 - Embeddings or semantic search
 - Web fallback for items not in the local library
+
+## Environment Variables
+
+By default the server connects to a local personal library with no authentication. Set these variables to change that:
+
+| Variable | Default | Description |
+|---|---|---|
+| `ZOTERO_LIBRARY_TYPE` | `user` | `user` for personal libraries, `group` for group libraries |
+| `ZOTERO_LIBRARY_ID` | `0` | Zotero user or group ID (required for group libraries) |
+| `ZOTERO_API_KEY` | — | API key for authenticated or remote access |
+| `ZOTERO_API_BASE_URL` | `http://127.0.0.1:23119/api` | Base URL for the Zotero API |
+
+Example for a group library in Claude Code:
+
+```json
+{
+  "mcpServers": {
+    "zotero": {
+      "type": "stdio",
+      "command": "zotero-fulltext",
+      "env": {
+        "ZOTERO_LIBRARY_TYPE": "group",
+        "ZOTERO_LIBRARY_ID": "12345"
+      }
+    }
+  }
+}
+```
+
+## Related Projects
+
+Other MCP servers for Zotero, with different design goals:
+
+- [54yyyu/zotero-mcp](https://github.com/54yyyu/zotero-mcp) — Feature-rich: read-write operations, optional semantic search via ChromaDB, Web API support. Heavier dependencies.
+- [kujenga/zotero-mcp](https://github.com/kujenga/zotero-mcp) — Minimal read-only server with Web API support via pyzotero. No citekey resolution or in-document search.
+- [kaliaboi/mcp-zotero](https://github.com/kaliaboi/mcp-zotero) — Cloud-only (Zotero Web API). Metadata browsing, no fulltext.
 
 ## Requirements
 
