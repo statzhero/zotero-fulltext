@@ -2,10 +2,8 @@
 [![PyPI](https://img.shields.io/pypi/v/zotero-fulltext)](https://pypi.org/project/zotero-fulltext/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-
-# zotero-fulltext
-
 Access your [Zotero](https://www.zotero.org/) library with your favorite AI tool.
+![Demo](demo.gif)
 
 This MCP server for Zotero 8+ gives Claude and Codex access to your library via search and citekyes. It talks directly to Zotero's local API and aims to keep token usage low. Fulltext is fetched only on demand.
 
@@ -22,7 +20,7 @@ claude plugin install zotero
 3. Run `/mcp` to confirm the server is connected, and try a slash command:
 
 ```
-/zotero:find attention
+/zotero:find sustainability reporting
 ```
 
 Also works with [Claude Desktop](#claude-desktop), [Codex](#codex), and as a [standalone MCP server](#configuration) without slash commands.
@@ -53,39 +51,39 @@ claude plugin install zotero
 
 This permanently installs the MCP server and slash commands. Run `/mcp` to confirm the server is connected.
 
-If you only want the MCP tools without slash commands:
-
-```bash
-claude mcp add --transport stdio --scope user zotero -- zotero-fulltext
-```
-
 ### Claude Desktop
 
-Add the server to `claude_desktop_config.json`:
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/) (install with `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`).
+
+Open Claude Desktop → Settings → Developer → Edit Config, and add:
 
 ```json
 {
   "mcpServers": {
     "zotero": {
       "type": "stdio",
-      "command": "zotero-fulltext"
+      "command": "uvx",
+      "args": ["zotero-fulltext"]
     }
   }
 }
 ```
 
-Restart Claude Desktop, open a chat, and confirm the server is available.
+Save the file, then fully quit and reopen Claude Desktop (closing the window is not enough). Open a new chat and confirm the server is available.
 
 ### Codex
+
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/) (install with `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`).
 
 Add to `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.zotero]
-command = "zotero-fulltext"
+command = "uvx"
+args = ["zotero-fulltext"]
 ```
 
-Restart Codex, then run `codex mcp list` to verify it is configured.
+Restart Codex, then run `codex mcp list` to verify the server appears.
 
 ## Design
 
@@ -102,7 +100,7 @@ The server is intentionally simple and read-only. It relies on Zotero's own sear
 
 The server exposes five MCP tools. The slash commands above are convenience wrappers.
 
-### `lookup(citekey)`
+**`lookup(citekey)`**
 
 Exact citekey lookup. Citekeys are resolved in order:
 
@@ -112,19 +110,19 @@ Exact citekey lookup. Citekeys are resolved in order:
 
 If an item later gains a real citekey, the generated key is kept as an alias.
 
-### `search(query, collection?, tag?, limit?)`
+**`search(query, collection?, tag?, limit?)`**
 
 Searches Zotero with `qmode=everything`, collapses attachment hits to parent items, and ranks exact citekey matches first.
 
-### `collections()`
+**`collections()`**
 
 Lists collections in the current library.
 
-### `fulltext(citekey, offset?, limit?)`
+**`fulltext(citekey, offset?, limit?)`**
 
 Fetches indexed attachment fulltext, splits it into numbered paragraphs, and returns a bounded slice (default: 80 paragraphs).
 
-### `fulltext_search(citekey, query, before?, after?, limit?)`
+**`fulltext_search(citekey, query, before?, after?, limit?)`**
 
 Searches within a single item's paragraphized fulltext and returns matching paragraphs with surrounding context.
 
