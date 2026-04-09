@@ -75,11 +75,14 @@ class ZoteroClient:
         Returns an empty list when the endpoint is unavailable (e.g. the
         local Zotero API does not implement ``/deleted``).
         """
-        status, headers, payload = self._request_json(
-            "GET",
-            f"{self.settings.library_prefix}/deleted",
-            params={"since": since},
-        )
+        try:
+            status, headers, payload = self._request_json(
+                "GET",
+                f"{self.settings.library_prefix}/deleted",
+                params={"since": since},
+            )
+        except ZoteroClientError:
+            return [], None
         if status == 404:
             return [], None
         if status != 200:
