@@ -7,19 +7,14 @@ This MCP server for Zotero 8+ gives Claude and Codex citekey-native access to yo
 ## Quick Start
 
 1. Make sure Zotero 8+ is running with the [local API enabled](https://www.zotero.org/support/kb/connector_zotero_unavailable) (Settings → Advanced → "Allow other applications on this computer to communicate with Zotero").
-2. Install the server:
+2. Install the Claude Code plugin:
 
 ```bash
-uv tool install zotero-fulltext
+claude plugin marketplace add statzhero/zotero-fulltext
+claude plugin install zotero
 ```
 
-3. Add the plugin to Claude Code:
-
-```bash
-claude plugin add /absolute/path/to/zotero-fulltext
-```
-
-4. Restart Claude Code if needed, run `/mcp` to confirm the server is connected, and try a slash command:
+3. Run `/mcp` to confirm the server is connected, and try a slash command:
 
 ```
 /zotero:find attention
@@ -56,18 +51,17 @@ This makes the `zotero-fulltext` command permanently available. You can also use
 
 ### Claude Code (plugin with slash commands)
 
-Clone this repo and add it as a plugin:
-
 ```bash
-claude plugin add /absolute/path/to/zotero-fulltext
+claude plugin marketplace add statzhero/zotero-fulltext
+claude plugin install zotero
 ```
 
-This registers the MCP server and adds the slash commands. Restart Claude Code if needed and run `/mcp` to confirm the server is connected.
+This permanently installs the MCP server and slash commands. Run `/mcp` to confirm the server is connected.
 
 If you only want the MCP tools without slash commands:
 
 ```bash
-claude mcp add --transport stdio --scope project zotero -- zotero-fulltext
+claude mcp add --transport stdio --scope user zotero -- zotero-fulltext
 ```
 
 ### Claude Desktop

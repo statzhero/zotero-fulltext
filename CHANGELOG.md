@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Published to PyPI (`uv tool install zotero-fulltext`)
+- Claude Code plugin with marketplace install (`claude plugin marketplace add statzhero/zotero-fulltext`)
+- Added environment variable documentation for group and remote libraries
+
 ## 0.1.0
 
 - initial `zotero-fulltext` package skeleton
@@ -7,4 +13,3 @@
 - citekey-native lookup with native Zotero 8 keys, legacy Better BibTeX parsing, and generated fallback keys
 - bounded paragraph-level fulltext retrieval and search
 - FastMCP server for Codex and Claude
-- README, CI, benchmark harness, and initial unit tests

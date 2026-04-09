@@ -1,7 +1,7 @@
 {
   "name": "zotero",
-  "version": "0.1.0",
-  "description": "Claude Code slash commands for zotero-fulltext with citekey-native lookup and bounded fulltext access.",
+  "version": "0.2.0",
+  "description": "Claude Code slash commands for zotero-fulltext with citekeys and efficient fulltext access.",
   "author": {
     "name": "zotero-fulltext"
   },
