@@ -1,0 +1,10 @@
+{
+  "name": "zotero",
+  "version": "0.2.2",
+  "description": "Claude Code slash commands for zotero-fulltext with citekeys and efficient fulltext access.",
+  "author": {
+    "name": "zotero-fulltext"
+  },
+  "license": "MIT",
+  "mcpServers": "./.mcp.json"
+}
