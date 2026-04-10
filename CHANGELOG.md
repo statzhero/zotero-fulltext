@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- Codex plugin with skills (`find`, `lookup`, `read`, `within`) and dedicated MCP config
+- Added `.codex-plugin/` manifest, `.codex-mcp.json`, and `skills/` directory
+
 ## 0.2.1
 
 - Fix: gracefully handle missing `/deleted` endpoint on local Zotero API

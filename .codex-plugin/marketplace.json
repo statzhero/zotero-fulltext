@@ -11,7 +11,7 @@
         "path": "./"
       },
       "description": "Skills and MCP server for Zotero with citekeys and efficient fulltext access.",
-      "version": "0.2.3",
+      "version": "0.3.0",
       "author": {
         "name": "Ulrich Atz"
       },
