@@ -74,7 +74,7 @@ Save the file, then fully quit and reopen Claude Desktop (closing the window is 
 
 ### Codex (plugin with skills)
 
-Install from the Codex plugin marketplace or from the repo:
+> **Note:** The Codex plugin marketplace is still rolling out. The install flow below may change.
 
 ```bash
 codex plugin marketplace add statzhero/zotero-fulltext
