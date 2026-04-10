@@ -1,10 +1,26 @@
 {
   "name": "zotero",
   "version": "0.2.3",
-  "description": "Claude Code slash commands for zotero-fulltext with citekeys and efficient fulltext access.",
+  "description": "Codex skills and MCP server for zotero-fulltext with citekeys and efficient fulltext access.",
   "author": {
-    "name": "zotero-fulltext"
+    "name": "Ulrich Atz",
+    "email": "ulrich.atz@unibocconi.it"
   },
+  "homepage": "https://github.com/statzhero/zotero-fulltext",
+  "repository": "https://github.com/statzhero/zotero-fulltext",
   "license": "MIT",
-  "mcpServers": "./.mcp.json"
+  "keywords": ["zotero", "mcp", "bibliography", "citations", "fulltext", "research"],
+  "skills": "./skills/",
+  "mcpServers": "./.codex-mcp.json",
+  "interface": {
+    "displayName": "Zotero Fulltext",
+    "shortDescription": "Search and read your Zotero library from Codex.",
+    "longDescription": "Fast, read-only MCP server for Zotero 8+. Search your library, look up items by citekey, and read fulltext paragraphs directly from Codex.",
+    "developerName": "Ulrich Atz",
+    "category": "Research",
+    "capabilities": ["Read"],
+    "websiteURL": "https://github.com/statzhero/zotero-fulltext",
+    "brandColor": "#CC2936",
+    "logo": "./logo-exports/logo.svg"
+  }
 }

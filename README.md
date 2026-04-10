@@ -24,7 +24,7 @@ claude plugin install zotero
 /zotero:find sustainability reporting
 ```
 
-Also works with [Claude Desktop](#claude-desktop), [Codex](#codex), and as a [standalone MCP server](#configuration) without slash commands.
+Also works with [Claude Desktop](#claude-desktop), [Codex](#codex-plugin-with-skills), and as a [standalone MCP server](#configuration) without slash commands.
 
 ## Commands
 
@@ -72,7 +72,18 @@ Open Claude Desktop → Settings → Developer → Edit Config, and add:
 
 Save the file, then fully quit and reopen Claude Desktop (closing the window is not enough). Open a new chat and confirm the server is available.
 
-### Codex
+### Codex (plugin with skills)
+
+Install from the Codex plugin marketplace or from the repo:
+
+```bash
+codex plugin marketplace add statzhero/zotero-fulltext
+codex plugin install zotero
+```
+
+This installs the MCP server and four skills (`find`, `lookup`, `read`, `within`).
+
+### Codex (manual MCP only)
 
 Requires [uv](https://docs.astral.sh/uv/getting-started/installation/) (install with `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`).
 

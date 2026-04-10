@@ -1,18 +1,16 @@
 {
   "name": "zotero-fulltext",
-  "owner": {
-    "name": "Ulrich Atz",
-    "email": "statzhero@users.noreply.github.com"
-  },
-  "metadata": {
-    "description": "Fast fulltext Zotero MCP server for Codex and Claude.",
-    "version": "0.2.3"
+  "interface": {
+    "displayName": "Zotero Fulltext"
   },
   "plugins": [
     {
       "name": "zotero",
-      "source": "./",
-      "description": "Claude Code slash commands for Zotero with citekeys and efficient fulltext access",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "description": "Skills and MCP server for Zotero with citekeys and efficient fulltext access.",
       "version": "0.2.3",
       "author": {
         "name": "Ulrich Atz"
@@ -20,7 +18,11 @@
       "homepage": "https://github.com/statzhero/zotero-fulltext",
       "repository": "https://github.com/statzhero/zotero-fulltext",
       "license": "MIT",
-      "keywords": ["zotero", "mcp", "bibliography", "citations", "fulltext"]
+      "keywords": ["zotero", "mcp", "bibliography", "citations", "fulltext", "research"],
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Research"
     }
   ]
 }

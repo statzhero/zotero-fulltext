@@ -20,7 +20,7 @@
       "homepage": "https://github.com/statzhero/zotero-fulltext",
       "repository": "https://github.com/statzhero/zotero-fulltext",
       "license": "MIT",
-      "keywords": ["zotero", "mcp", "bibliography", "citations", "fulltext"]
+      "keywords": ["zotero", "mcp", "bibliography", "citations", "fulltext", "research"]
     }
   ]
 }
