@@ -138,15 +138,6 @@ Fetches indexed attachment fulltext, splits it into numbered paragraphs, and ret
 
 Searches within a single item's paragraphized fulltext and returns matching paragraphs with surrounding context.
 
-
-
-## Roadmap
-
-- Remote API support (beyond local)
-- Write-back (notes, annotations)
-- Embeddings or semantic search
-- Web fallback for items not in the local library
-
 ## Environment Variables
 
 By default the server connects to a local personal library with no authentication. Set these variables to change that:
