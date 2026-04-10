@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Fast fulltext Zotero MCP server for Codex and Claude.",
-    "version": "0.2.2"
+    "version": "0.2.3"
   },
   "plugins": [
     {
       "name": "zotero",
       "source": "./",
       "description": "Claude Code slash commands for Zotero with citekeys and efficient fulltext access",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "author": {
         "name": "Ulrich Atz"
       },
