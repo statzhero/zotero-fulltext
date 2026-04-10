@@ -190,4 +190,4 @@ Or delete the `zotero` entry from `.mcp.json` / `claude_desktop_config.json` / `
 
 ## License
 
-MIT
+MIT • Ulrich Atz ([ulrichatz](https://bsky.app/profile/ulrichatz.org))
