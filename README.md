@@ -13,12 +13,12 @@ This MCP server for Zotero 8+ gives Claude and Codex access to your library via 
 1. Make sure Zotero 8+ is running with the [local API enabled](https://www.zotero.org/support/kb/connector_zotero_unavailable) (Settings → Advanced → "Allow other applications on this computer to communicate with Zotero").
 2. Install the Claude Code plugin:
 
-```bash
-claude plugin marketplace add statzhero/zotero-fulltext
-claude plugin install zotero
+```
+/plugin marketplace add statzhero/zotero-fulltext
+/plugin install zotero@zotero-fulltext
 ```
 
-3. Run `/mcp` to confirm the server is connected, and try a slash command:
+3. Run `/mcp` to confirm the server is connected, then try a slash command:
 
 ```
 /zotero:find sustainability reporting
@@ -45,12 +45,12 @@ Without the plugin, all the same functionality is available through the MCP tool
 
 ### Claude Code (plugin with slash commands)
 
-```bash
-claude plugin marketplace add statzhero/zotero-fulltext
-claude plugin install zotero
+```
+/plugin marketplace add statzhero/zotero-fulltext
+/plugin install zotero@zotero-fulltext
 ```
 
-This permanently installs the MCP server and slash commands. Run `/mcp` to confirm the server is connected.
+This installs the MCP server and slash commands. Run `/mcp` to confirm the server is connected.
 
 ### Claude Desktop
 
