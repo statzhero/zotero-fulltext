@@ -10,7 +10,7 @@ from .client import ZoteroClient, batched
 from .config import Settings
 from .errors import NoFulltextError, ZoteroClientError
 from .index import MetadataIndex
-from .models import ItemRecord
+from .models import AttachmentRecord, ItemRecord
 from .text import extract_paragraphs, paragraph_slice, search_paragraphs
 
 
@@ -68,7 +68,8 @@ class ZoteroFulltextService:
             return False
 
         deleted_item_keys, deleted_version = self.client.get_deleted(self.index.library_version)
-        changed_item_keys = [key for key in versions if key not in set(deleted_item_keys)]
+        deleted_item_key_set = set(deleted_item_keys)
+        changed_item_keys = [key for key in versions if key not in deleted_item_key_set]
         changed_items: list[dict[str, Any]] = []
         for batch in batched(changed_item_keys, 50):
             changed_items.extend(self.client.get_items_by_keys(batch))
@@ -231,17 +232,29 @@ class ZoteroFulltextService:
                 "paragraphs": [],
             }
         paragraph_limit = max(1, min(200, limit or self.settings.default_fulltext_limit))
+        safe_offset = max(0, offset)
+        returned_paragraphs = paragraph_slice(
+            paragraphs,
+            offset=safe_offset,
+            limit=paragraph_limit,
+            max_chars=max(1, self.settings.max_fulltext_chars),
+        )
+        next_offset = safe_offset + len(returned_paragraphs)
         return {
             "source": "zotero-local",
             "found": True,
             "citekey": record.citation_key,
             "has_fulltext": True,
             "item": self._item_summary(record),
-            "offset": max(0, offset),
+            "offset": safe_offset,
             "limit": paragraph_limit,
             "paragraph_count": len(paragraphs),
-            "returned_count": len(paragraph_slice(paragraphs, offset=max(0, offset), limit=paragraph_limit)),
-            "paragraphs": paragraph_slice(paragraphs, offset=max(0, offset), limit=paragraph_limit),
+            "returned_count": len(returned_paragraphs),
+            "returned_chars": sum(len(paragraph["text"]) for paragraph in returned_paragraphs),
+            "max_chars": max(1, self.settings.max_fulltext_chars),
+            "truncated": next_offset < len(paragraphs),
+            "next_offset": next_offset if next_offset < len(paragraphs) else None,
+            "paragraphs": returned_paragraphs,
         }
 
     def fulltext_search(
@@ -317,6 +330,10 @@ class ZoteroFulltextService:
             attachment_candidates = self.index.attachment_candidates(record.item_key)
         if not attachment_candidates:
             return None, "NO_ATTACHMENT"
+        attachment_candidates = _prioritize_selected_attachment(
+            attachment_candidates,
+            record.attachment_key,
+        )
         for attachment in attachment_candidates:
             cached = self.paragraph_cache.get(attachment.item_key)
             if cached is not None:
@@ -326,7 +343,10 @@ class ZoteroFulltextService:
                 fulltext = self.client.get_fulltext(attachment.item_key)
             except NoFulltextError:
                 continue
-            paragraphs = extract_paragraphs(str(fulltext.get("content", "") or ""))
+            paragraphs = extract_paragraphs(
+                str(fulltext.get("content", "") or ""),
+                max_chars=max(1, self.settings.max_paragraph_chars),
+            )
             if not paragraphs:
                 continue
             record.attachment_key = attachment.item_key
@@ -379,3 +399,15 @@ class ZoteroFulltextService:
             }
         )
         return payload
+
+
+def _prioritize_selected_attachment(
+    attachments: list[AttachmentRecord],
+    selected_attachment_key: str | None,
+) -> list[AttachmentRecord]:
+    if not selected_attachment_key:
+        return attachments
+    return sorted(
+        attachments,
+        key=lambda attachment: 0 if attachment.item_key == selected_attachment_key else 1,
+    )

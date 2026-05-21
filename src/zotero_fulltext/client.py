@@ -75,14 +75,11 @@ class ZoteroClient:
         Returns an empty list when the endpoint is unavailable (e.g. the
         local Zotero API does not implement ``/deleted``).
         """
-        try:
-            status, headers, payload = self._request_json(
-                "GET",
-                f"{self.settings.library_prefix}/deleted",
-                params={"since": since},
-            )
-        except ZoteroClientError:
-            return [], None
+        status, headers, payload = self._request_json(
+            "GET",
+            f"{self.settings.library_prefix}/deleted",
+            params={"since": since},
+        )
         if status == 404:
             return [], None
         if status != 200:
@@ -201,6 +198,8 @@ class ZoteroClient:
         try:
             return status, response_headers, json.loads(payload)
         except json.JSONDecodeError as exc:
+            if status == 404:
+                return status, response_headers, None
             raise ZoteroClientError(f"Invalid JSON response from Zotero for {path!r}.") from exc
 
     def _request(

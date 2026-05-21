@@ -107,6 +107,8 @@ class ZoteroFulltextServiceTest(unittest.TestCase):
             default_fulltext_limit=80,
             default_fulltext_context=1,
             startup_sync=False,
+            max_paragraph_chars=1800,
+            max_fulltext_chars=60000,
         )
 
     def test_lookup_and_search_return_strict_zero_results(self) -> None:
@@ -227,9 +229,40 @@ class ZoteroFulltextServiceTest(unittest.TestCase):
             }
             service = ZoteroFulltextService(settings, client=client, index=index)
             result = service.fulltext("paper2020")
+            second = service.fulltext("paper2020")
         self.assertTrue(result["found"])
         self.assertEqual(result["paragraph_count"], 2)
         self.assertEqual(client.fulltext_calls, 2)
+        self.assertEqual(second["paragraph_count"], 2)
+
+    def test_fulltext_splits_and_caps_large_text_payloads(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings = self.make_settings(temp_dir)
+            settings.max_paragraph_chars = 20
+            settings.max_fulltext_chars = 25
+            client = FakeClient()
+            index = MetadataIndex.rebuild_from_items(
+                [
+                    make_item("AAA111", title="Paper", citation_key="paper2020"),
+                    make_attachment("ATTPDF", "AAA111"),
+                ],
+                5,
+            )
+            client.fulltexts["ATTPDF"] = {
+                "content": (
+                    "alpha beta gamma delta epsilon zeta eta theta iota kappa.\n\n"
+                    "Second paragraph."
+                ),
+            }
+            service = ZoteroFulltextService(settings, client=client, index=index)
+            result = service.fulltext("paper2020")
+        self.assertTrue(result["truncated"])
+        self.assertEqual(result["next_offset"], 1)
+        self.assertLessEqual(result["returned_chars"], settings.max_fulltext_chars)
+        self.assertTrue(all(
+            len(paragraph["text"]) <= settings.max_paragraph_chars
+            for paragraph in result["paragraphs"]
+        ))
 
 
 if __name__ == "__main__":

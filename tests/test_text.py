@@ -19,6 +19,12 @@ class TextHelpersTest(unittest.TestCase):
             ],
         )
 
+    def test_extract_paragraphs_splits_oversized_chunks(self) -> None:
+        raw = "alpha beta gamma delta epsilon zeta"
+        paragraphs = extract_paragraphs(raw, max_chars=12)
+        self.assertEqual(" ".join(paragraphs), raw)
+        self.assertTrue(all(len(paragraph) <= 12 for paragraph in paragraphs))
+
     def test_paragraph_slice_returns_stable_numbers(self) -> None:
         paragraphs = ["a", "b", "c", "d"]
         self.assertEqual(
@@ -26,6 +32,16 @@ class TextHelpersTest(unittest.TestCase):
             [
                 {"paragraph": 2, "text": "b"},
                 {"paragraph": 3, "text": "c"},
+            ],
+        )
+
+    def test_paragraph_slice_respects_character_budget(self) -> None:
+        paragraphs = ["aaaa", "bbbb", "cccc"]
+        self.assertEqual(
+            paragraph_slice(paragraphs, offset=0, limit=3, max_chars=8),
+            [
+                {"paragraph": 1, "text": "aaaa"},
+                {"paragraph": 2, "text": "bbbb"},
             ],
         )
 

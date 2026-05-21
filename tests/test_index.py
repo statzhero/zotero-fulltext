@@ -97,6 +97,17 @@ class MetadataIndexTest(unittest.TestCase):
         keys = sorted(record.citation_key for record in index.items_by_key.values())
         self.assertEqual(keys, ["smith2020", "smith2020a"])
 
+    def test_dedupes_duplicate_real_citation_keys(self) -> None:
+        index = MetadataIndex.rebuild_from_items(
+            [
+                make_item("AAA111", title="One", citation_key="paper2020"),
+                make_item("BBB222", title="Two", citation_key="paper2020"),
+            ],
+            5,
+        )
+        keys = sorted(record.citation_key for record in index.items_by_key.values())
+        self.assertEqual(keys, ["paper2020", "paper2020-2"])
+
     def test_promotes_generated_key_to_real_key_and_keeps_alias(self) -> None:
         previous = MetadataIndex.rebuild_from_items(
             [make_item("AAA111", title="Paper", citation_key=None)],

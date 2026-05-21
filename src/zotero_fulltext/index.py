@@ -309,6 +309,7 @@ class MetadataIndex:
         previous: "MetadataIndex",
     ) -> None:
         ordered = sorted(prepared, key=lambda value: str(value[0].get("key", "")))
+        reserved_keys = self._reserved_lookup_keys()
 
         real_key_items: list[tuple[dict[str, object], int | None, str]] = []
         generated_items: list[tuple[dict[str, object], int | None]] = []
@@ -321,35 +322,44 @@ class MetadataIndex:
         for data, version, preferred in real_key_items:
             item_key = str(data.get("key", "") or "")
             previous_item = previous.items_by_key.get(item_key)
-            citekey = self._dedupe_real_key(preferred, exclude_item_key=item_key)
+            _discard_reserved_item(reserved_keys, item_key)
+            citekey = self._dedupe_real_key(preferred, reserved_keys=reserved_keys)
             aliases = self._merged_aliases(previous_item, citekey)
-            self.items_by_key[item_key] = item_from_data(
+            record = item_from_data(
                 data,
                 version,
                 citation_key=citekey,
                 generated_citation_key=False,
                 aliases=aliases,
             )
+            self.items_by_key[item_key] = record
+            _add_reserved_item(reserved_keys, record)
 
         for data, version in generated_items:
             item_key = str(data.get("key", "") or "")
             previous_item = previous.items_by_key.get(item_key)
+            _discard_reserved_item(reserved_keys, item_key)
             if (
                 previous_item is not None
                 and previous_item.generated_citation_key
-                and self._citation_key_available(previous_item.citation_key, exclude_item_key=item_key)
+                and self._citation_key_available(
+                    previous_item.citation_key,
+                    reserved_keys=reserved_keys,
+                )
             ):
                 citekey = previous_item.citation_key
             else:
-                citekey = self._reserve_generated_key(data, exclude_item_key=item_key)
+                citekey = self._reserve_generated_key(data, reserved_keys=reserved_keys)
             aliases = previous_item.aliases[:] if previous_item is not None else []
-            self.items_by_key[item_key] = item_from_data(
+            record = item_from_data(
                 data,
                 version,
                 citation_key=citekey,
                 generated_citation_key=True,
                 aliases=aliases,
             )
+            self.items_by_key[item_key] = record
+            _add_reserved_item(reserved_keys, record)
 
     def _merged_aliases(self, previous_item: ItemRecord | None, current_citekey: str) -> list[str]:
         aliases: list[str] = []
@@ -369,38 +379,51 @@ class MetadataIndex:
             deduped.append(alias)
         return deduped
 
-    def _dedupe_real_key(self, preferred: str, *, exclude_item_key: str) -> str:
+    def _dedupe_real_key(
+        self,
+        preferred: str,
+        *,
+        reserved_keys: dict[str, set[str]],
+    ) -> str:
         candidate = preferred.strip()
         if not candidate:
             candidate = "item"
-        if self._citation_key_available(candidate, exclude_item_key=exclude_item_key):
+        if self._citation_key_available(candidate, reserved_keys=reserved_keys):
             return candidate
         suffix = 2
         while True:
             candidate_with_suffix = f"{candidate}-{suffix}"
-            if self._citation_key_available(candidate_with_suffix, exclude_item_key=exclude_item_key):
+            if self._citation_key_available(candidate_with_suffix, reserved_keys=reserved_keys):
                 return candidate_with_suffix
             suffix += 1
 
-    def _reserve_generated_key(self, data: dict[str, object], *, exclude_item_key: str) -> str:
+    def _reserve_generated_key(
+        self,
+        data: dict[str, object],
+        *,
+        reserved_keys: dict[str, set[str]],
+    ) -> str:
         base = generated_base_key(data)
         for suffix in _alpha_suffixes():
             candidate = f"{base}{suffix}"
-            if self._citation_key_available(candidate, exclude_item_key=exclude_item_key):
+            if self._citation_key_available(candidate, reserved_keys=reserved_keys):
                 return candidate
         raise RuntimeError("Unable to allocate a generated citation key.")
 
-    def _citation_key_available(self, candidate: str, *, exclude_item_key: str) -> bool:
+    def _citation_key_available(
+        self,
+        candidate: str,
+        *,
+        reserved_keys: dict[str, set[str]],
+    ) -> bool:
         normalized = normalize_lookup_key(candidate)
-        for item_key, item in self.items_by_key.items():
-            if item_key == exclude_item_key:
-                continue
-            if normalize_lookup_key(item.citation_key) == normalized:
-                return False
-            for alias in item.aliases:
-                if normalize_lookup_key(alias) == normalized:
-                    return False
-        return True
+        return normalized not in reserved_keys
+
+    def _reserved_lookup_keys(self) -> dict[str, set[str]]:
+        reserved_keys: dict[str, set[str]] = {}
+        for item in self.items_by_key.values():
+            _add_reserved_item(reserved_keys, item)
+        return reserved_keys
 
     def _remove_item(self, item_key: str) -> set[str]:
         touched_parents: set[str] = set()
@@ -453,6 +476,21 @@ def _attachment_priority(attachment: AttachmentRecord) -> tuple[int, str]:
     if attachment.is_text_like():
         return (1, attachment.item_key)
     return (2, attachment.item_key)
+
+
+def _add_reserved_item(reserved_keys: dict[str, set[str]], item: ItemRecord) -> None:
+    for lookup_key in [item.citation_key, *item.aliases]:
+        normalized = normalize_lookup_key(lookup_key)
+        if not normalized:
+            continue
+        reserved_keys.setdefault(normalized, set()).add(item.item_key)
+
+
+def _discard_reserved_item(reserved_keys: dict[str, set[str]], item_key: str) -> None:
+    for normalized, item_keys in list(reserved_keys.items()):
+        item_keys.discard(item_key)
+        if not item_keys:
+            reserved_keys.pop(normalized, None)
 
 
 def _alpha_suffixes() -> list[str]:

@@ -6,7 +6,7 @@ Access your [Zotero](https://www.zotero.org/) library with your favorite AI tool
 
 ![Demo](demo.gif)
 
-This MCP server for Zotero 8+ gives Claude and Codex access to your library via search and citekyes. It talks directly to Zotero's local API and aims to keep token usage low. Fulltext is fetched only on demand.
+This MCP server for Zotero 8+ gives Claude and Codex access to your library via search and citekeys. It talks directly to Zotero's local API and aims to keep token usage low. Fulltext is fetched only on demand.
 
 ## Quick Start
 
@@ -104,7 +104,7 @@ The server is intentionally simple and read-only. It relies on Zotero's own sear
 - Startup builds a metadata index mapping citekeys to items and attachments.
 - Library changes are tracked with Zotero version headers and incremental sync.
 - Fulltext is fetched only on demand and cached in memory (TTL/LRU).
-- All outputs are bounded by default: 10 search hits, 80 paragraphs, 20 fulltext matches.
+- All outputs are bounded by default: 10 search hits, 80 paragraphs with a character budget, 20 fulltext matches.
 - Item results include `item_uri` and `fulltext_uri` so clients can attach standard `zotero://...` resources directly.
 - If a lookup finds no citekey, it returns `found=false`. If a search finds nothing, it returns `results=[]`. There is no web fallback.
 
@@ -132,7 +132,18 @@ Lists collections in the current library.
 
 **`fulltext(citekey, offset?, limit?)`**
 
-Fetches indexed attachment fulltext, splits it into numbered paragraphs, and returns a bounded slice (default: 80 paragraphs).
+Fetches indexed attachment fulltext, splits it into numbered paragraphs, and returns a bounded slice (default: 80 paragraphs). Large extracted paragraphs are split into smaller chunks, and each response has a soft character budget. If the response includes `truncated=true`, request the same citekey again with `offset=next_offset` to continue reading.
+
+Fulltext responses include paging metadata:
+
+| Field | Meaning |
+|---|---|
+| `paragraph_count` | Total available paragraph chunks for the item |
+| `returned_count` | Number of paragraph chunks in this response |
+| `returned_chars` | Approximate text characters returned |
+| `max_chars` | Character budget used for this response |
+| `truncated` | Whether more paragraph chunks remain |
+| `next_offset` | Offset to pass into the next `fulltext` call, or `null` when complete |
 
 **`fulltext_search(citekey, query, before?, after?, limit?)`**
 
@@ -148,6 +159,8 @@ By default the server connects to a local personal library with no authenticatio
 | `ZOTERO_LIBRARY_ID` | `0` | Zotero user or group ID (required for group libraries) |
 | `ZOTERO_API_KEY` | — | API key for authenticated or remote access |
 | `ZOTERO_API_BASE_URL` | `http://127.0.0.1:23119/api` | Base URL for the Zotero API |
+| `ZOTERO_MAX_PARAGRAPH_CHARS` | `1800` | Maximum characters per returned fulltext chunk |
+| `ZOTERO_MAX_FULLTEXT_CHARS` | `60000` | Soft character budget for each `fulltext` response; continue with `next_offset` |
 
 Example for a group library in Claude Code:
 

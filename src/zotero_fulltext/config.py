@@ -42,6 +42,8 @@ class Settings:
     default_fulltext_limit: int
     default_fulltext_context: int
     startup_sync: bool
+    max_paragraph_chars: int = 1800
+    max_fulltext_chars: int = 60000
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -81,6 +83,8 @@ class Settings:
             default_fulltext_limit=_env_int("ZOTERO_DEFAULT_FULLTEXT_LIMIT", 80),
             default_fulltext_context=_env_int("ZOTERO_DEFAULT_FULLTEXT_CONTEXT", 1),
             startup_sync=_env_bool("ZOTERO_STARTUP_SYNC", True),
+            max_paragraph_chars=_env_int("ZOTERO_MAX_PARAGRAPH_CHARS", 1800),
+            max_fulltext_chars=_env_int("ZOTERO_MAX_FULLTEXT_CHARS", 60000),
         )
 
     @property

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1
+
+- Bound large fulltext responses by both paragraph count and character budget
+- Add `truncated`, `next_offset`, `returned_chars`, and `max_chars` metadata to `fulltext` responses
+- Add `ZOTERO_MAX_PARAGRAPH_CHARS` and `ZOTERO_MAX_FULLTEXT_CHARS` configuration
+- Improve incremental delete sync error handling
+- Speed up citekey deduplication and warm attachment reads
+
 ## 0.3.0
 
 - Codex plugin with skills (`find`, `lookup`, `read`, `within`) and dedicated MCP config
