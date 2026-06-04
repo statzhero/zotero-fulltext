@@ -135,6 +135,21 @@ class ZoteroFulltextServiceTest(unittest.TestCase):
         self.assertEqual(result["item"]["item_uri"], "zotero://item/paper2020")
         self.assertEqual(result["item"]["fulltext_uri"], "zotero://fulltext/paper2020")
 
+    def test_lookup_groups_creators_by_role(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings = self.make_settings(temp_dir)
+            client = FakeClient()
+            item = make_item("AAA111", title="Chapter", citation_key="chapter2020")
+            item["data"]["creators"] = [
+                {"creatorType": "author", "lastName": "Arbel"},
+                {"creatorType": "editor", "lastName": "Kim"},
+            ]
+            index = MetadataIndex.rebuild_from_items([item], 5)
+            service = ZoteroFulltextService(settings, client=client, index=index)
+            result = service.lookup("chapter2020")
+        self.assertEqual(result["item"]["creators"], {"author": ["Arbel"], "editor": ["Kim"]})
+        self.assertEqual(result["item"]["author_summary"], "Arbel")
+
     def test_fulltext_uses_cached_paragraphs_on_warm_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             settings = self.make_settings(temp_dir)

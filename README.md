@@ -106,6 +106,7 @@ The server is intentionally simple and read-only. It relies on Zotero's own sear
 - Fulltext is fetched only on demand and cached in memory (TTL/LRU).
 - All outputs are bounded by default: 10 search hits, 80 paragraphs with a character budget, 20 fulltext matches.
 - Item results include `item_uri` and `fulltext_uri` so clients can attach standard `zotero://...` resources directly.
+- Creator roles (author, editor, translator, etc.) are preserved and grouped in results.
 - If a lookup finds no citekey, it returns `found=false`. If a search finds nothing, it returns `results=[]`. There is no web fallback.
 
 ## Tools

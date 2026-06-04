@@ -145,6 +145,27 @@ class MetadataIndexTest(unittest.TestCase):
         self.assertIsNone(index.get_by_citekey("paper2020"))
         self.assertNotIn("ATTPDF", index.attachments_by_key)
 
+    def test_creators_preserve_roles(self) -> None:
+        index = MetadataIndex.rebuild_from_items(
+            [
+                make_item(
+                    "AAA111",
+                    title="Chapter",
+                    citation_key="chapter2020",
+                    creators=[
+                        {"creatorType": "author", "lastName": "Arbel"},
+                        {"creatorType": "author", "lastName": "Becher"},
+                        {"creatorType": "editor", "lastName": "Kim"},
+                        {"creatorType": "editor", "lastName": "Elvy"},
+                    ],
+                )
+            ],
+            5,
+        )
+        record = index.get_by_citekey("chapter2020")
+        self.assertEqual(record.creators_by_role, {"author": ["Arbel", "Becher"], "editor": ["Kim", "Elvy"]})
+        self.assertEqual(record.author_summary, "Arbel & Becher")
+
     def test_round_trip_save_and_load(self) -> None:
         index = MetadataIndex.rebuild_from_items(
             [make_item("AAA111", title="Paper", citation_key="paper2020")],

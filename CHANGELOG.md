@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2
+
+- Preserve creator roles (author, editor, translator, etc.) instead of flattening all creators into a single `authors` array
+- Lookup and search results now return `creators` grouped by role
+- Backward-compatible: existing cached indexes with flat creator lists are migrated on load
+
 ## 0.3.1
 
 - Bound large fulltext responses by both paragraph count and character budget

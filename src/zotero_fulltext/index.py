@@ -51,20 +51,18 @@ def slugify_ascii(value: str) -> str:
     return slug or "item"
 
 
-def creator_names(creators: list[dict[str, object]]) -> list[str]:
-    """Convert Zotero creator objects into readable names."""
-    names: list[str] = []
+def creator_names(creators: list[dict[str, object]]) -> list[dict[str, str]]:
+    """Convert Zotero creator objects into name/role dicts."""
+    result: list[dict[str, str]] = []
     for creator in creators:
         last_name = str(creator.get("lastName", "") or "").strip()
         first_name = str(creator.get("firstName", "") or "").strip()
         single_name = str(creator.get("name", "") or "").strip()
-        if last_name:
-            names.append(last_name)
-        elif single_name:
-            names.append(single_name)
-        elif first_name:
-            names.append(first_name)
-    return names
+        name = last_name or single_name or first_name
+        if name:
+            role = str(creator.get("creatorType", "author") or "author").strip()
+            result.append({"name": name, "role": role})
+    return result
 
 
 def generated_base_key(data: dict[str, object]) -> str:

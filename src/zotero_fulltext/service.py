@@ -375,7 +375,7 @@ class ZoteroFulltextService:
             "item_uri": f"zotero://item/{record.citation_key}",
             "fulltext_uri": f"zotero://fulltext/{record.citation_key}",
             "title": record.title,
-            "authors": record.creators,
+            "creators": record.creators_by_role,
             "author_summary": record.author_summary,
             "year": record.year,
             "item_type": record.item_type,
