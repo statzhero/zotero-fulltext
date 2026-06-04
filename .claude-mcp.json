@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "zotero": {
-      "command": "uvx",
-      "args": ["zotero-fulltext"],
+      "command": "bash",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/run-server.sh"],
       "env": {
         "ZOTERO_LIBRARY_TYPE": "${ZOTERO_LIBRARY_TYPE:-user}",
         "ZOTERO_LIBRARY_ID": "${ZOTERO_LIBRARY_ID:-0}",

@@ -11,7 +11,7 @@
   "license": "MIT",
   "keywords": ["zotero", "mcp", "bibliography", "citations", "fulltext", "research"],
   "skills": "./skills/",
-  "mcpServers": "./.codex-mcp.json",
+  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Zotero Fulltext",
     "shortDescription": "Search and read your Zotero library from Codex.",
@@ -19,6 +19,11 @@
     "developerName": "Ulrich Atz",
     "category": "Research",
     "capabilities": ["Read"],
+    "defaultPrompt": [
+      "Search my Zotero library for papers about disclosure.",
+      "Look up a Zotero item by citekey.",
+      "Read fulltext paragraphs from a Zotero citekey."
+    ],
     "websiteURL": "https://github.com/statzhero/zotero-fulltext",
     "brandColor": "#CC2936",
     "logo": "./.codex-plugin/logo.svg"

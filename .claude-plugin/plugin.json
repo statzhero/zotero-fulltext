@@ -6,5 +6,5 @@
     "name": "zotero-fulltext"
   },
   "license": "MIT",
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.claude-mcp.json"
 }
