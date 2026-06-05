@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.3
+
+- Clarify tool descriptions so LLMs treat citekeys as exact single-token matches (e.g. `atz2022` not `atz 2022`)
+- Steer LLMs toward `lookup` over `search` when they already have a citekey
+
 ## 0.3.2
 
 - Preserve creator roles (author, editor, translator, etc.) instead of flattening all creators into a single `authors` array
