@@ -54,7 +54,10 @@ def create_server(settings: Settings | None = None):
     @mcp.tool(
         name="lookup",
         annotations=TOOL_ANNOTATIONS,
-        description="Look up a Zotero item by citekey exactly.",
+        description=(
+            "Look up a Zotero item by its exact citekey (a single token with no spaces, "
+            "e.g. 'atz2022' not 'atz 2022'). Use this first when you know the citekey."
+        ),
     )
     def lookup(citekey: str) -> dict[str, Any]:
         return safe_call(service.lookup, citekey)
@@ -62,7 +65,10 @@ def create_server(settings: Settings | None = None):
     @mcp.tool(
         name="search",
         annotations=TOOL_ANNOTATIONS,
-        description="Search Zotero metadata and indexed fulltext without inventing local matches.",
+        description=(
+            "Search Zotero metadata and indexed fulltext by keywords. "
+            "For a known citekey (e.g. 'atz2022'), use `lookup` instead."
+        ),
     )
     def search(
         query: str,
@@ -89,7 +95,7 @@ def create_server(settings: Settings | None = None):
     @mcp.tool(
         name="fulltext",
         annotations=TOOL_ANNOTATIONS,
-        description="Return numbered paragraphs for a Zotero item's indexed fulltext.",
+        description="Return numbered paragraphs for a Zotero item's indexed fulltext. The citekey is a single token with no spaces (e.g. 'atz2022').",
     )
     def fulltext(
         citekey: str,
@@ -101,7 +107,7 @@ def create_server(settings: Settings | None = None):
     @mcp.tool(
         name="fulltext_search",
         annotations=TOOL_ANNOTATIONS,
-        description="Search within a Zotero item's indexed fulltext and return local paragraph context.",
+        description="Search within a Zotero item's indexed fulltext and return local paragraph context. The citekey is a single token with no spaces (e.g. 'atz2022').",
     )
     def fulltext_search(
         citekey: str,
