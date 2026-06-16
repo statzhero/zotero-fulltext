@@ -7,6 +7,7 @@ dist/
 *.pyc
 .env
 .vscode
+.claude
 demo.tape
 _workflow
 logo-exports

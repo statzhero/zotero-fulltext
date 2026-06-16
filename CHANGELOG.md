@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.4
+
+- Fix: when an item has several attachments (for example the article plus a supplemental appendix), `fulltext` now returns the attachment with the most indexed text instead of whichever attachment key sorts first. This stops a short appendix from being served in place of the full paper.
+
 ## 0.3.3
 
 - Clarify tool descriptions so LLMs treat citekeys as exact single-token matches (e.g. `atz2022` not `atz 2022`)

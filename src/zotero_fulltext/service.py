@@ -330,30 +330,43 @@ class ZoteroFulltextService:
             attachment_candidates = self.index.attachment_candidates(record.item_key)
         if not attachment_candidates:
             return None, "NO_ATTACHMENT"
+        # Warm path: a previously confirmed attachment whose paragraphs are
+        # still cached needs no further Zotero calls.
+        if record.attachment_key:
+            cached = self.paragraph_cache.get(record.attachment_key)
+            if cached is not None:
+                return cached, None
         attachment_candidates = _prioritize_selected_attachment(
             attachment_candidates,
             record.attachment_key,
         )
+        # Several attachments can share a parent (e.g. the article plus a
+        # supplemental appendix), and they often carry near-identical titles
+        # and content types. Pick the one with the most indexed text, which is
+        # almost always the main document rather than a supplement.
+        best_paragraphs: list[str] | None = None
+        best_length = -1
         for attachment in attachment_candidates:
-            cached = self.paragraph_cache.get(attachment.item_key)
-            if cached is not None:
-                record.attachment_key = attachment.item_key
-                return cached, None
             try:
                 fulltext = self.client.get_fulltext(attachment.item_key)
             except NoFulltextError:
                 continue
+            content = str(fulltext.get("content", "") or "")
             paragraphs = extract_paragraphs(
-                str(fulltext.get("content", "") or ""),
+                content,
                 max_chars=max(1, self.settings.max_paragraph_chars),
             )
             if not paragraphs:
                 continue
-            record.attachment_key = attachment.item_key
-            self.paragraph_cache.set(attachment.item_key, paragraphs)
-            self.index.save(self.settings.metadata_path)
-            return paragraphs, None
-        return None, "NO_FULLTEXT_INDEX"
+            if len(content) > best_length:
+                best_paragraphs = paragraphs
+                best_length = len(content)
+                record.attachment_key = attachment.item_key
+        if best_paragraphs is None:
+            return None, "NO_FULLTEXT_INDEX"
+        self.paragraph_cache.set(record.attachment_key, best_paragraphs)
+        self.index.save(self.settings.metadata_path)
+        return best_paragraphs, None
 
     def _record_matches_filters(
         self,

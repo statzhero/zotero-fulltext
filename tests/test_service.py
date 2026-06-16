@@ -250,6 +250,37 @@ class ZoteroFulltextServiceTest(unittest.TestCase):
         self.assertEqual(client.fulltext_calls, 2)
         self.assertEqual(second["paragraph_count"], 2)
 
+    def test_fulltext_prefers_richest_attachment_over_key_order(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings = self.make_settings(temp_dir)
+            client = FakeClient()
+            # APPDX sorts before PAPER by item key, but it is the short
+            # supplemental appendix; PAPER holds the full article.
+            index = MetadataIndex.rebuild_from_items(
+                [
+                    make_item("AAA111", title="Paper", citation_key="paper2020"),
+                    make_attachment("APPDX", "AAA111"),
+                    make_attachment("PAPER", "AAA111"),
+                ],
+                5,
+            )
+            client.fulltexts["APPDX"] = {
+                "content": "Supplemental appendix.\n\nExtra tables.",
+            }
+            client.fulltexts["PAPER"] = {
+                "content": (
+                    "Introduction to the full article.\n\n"
+                    "Results section with substantial detail and discussion.\n\n"
+                    "Conclusion of the full article."
+                ),
+            }
+            service = ZoteroFulltextService(settings, client=client, index=index)
+            result = service.fulltext("paper2020")
+            detail = service.lookup("paper2020")
+        self.assertTrue(result["found"])
+        self.assertEqual(result["paragraph_count"], 3)
+        self.assertEqual(detail["item"]["attachment_key"], "PAPER")
+
     def test_fulltext_splits_and_caps_large_text_payloads(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             settings = self.make_settings(temp_dir)

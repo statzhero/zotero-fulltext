@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.11"
 
 [options]
-exclude-newer = "2026-06-01T01:37:19.7033Z"
+exclude-newer = "2026-06-05T18:32:11.152722Z"
 exclude-newer-span = "P3D"
 
 [[package]]
@@ -1377,7 +1377,7 @@ wheels = [
 
 [[package]]
 name = "zotero-fulltext"
-version = "0.3.2"
+version = "0.3.3"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
