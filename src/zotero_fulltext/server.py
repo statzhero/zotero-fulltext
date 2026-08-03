@@ -1,4 +1,4 @@
-"""FastMCP server wrapper for zotero-fulltext."""
+"""MCP server wrapper for zotero-fulltext."""
 
 from __future__ import annotations
 
@@ -10,30 +10,39 @@ from .errors import ZoteroFulltextError
 from .service import ZoteroFulltextService
 
 
-TOOL_ANNOTATIONS = {
-    "readOnlyHint": True,
-    "idempotentHint": True,
-    "openWorldHint": False,
-}
+def create_server(
+    settings: Settings | None = None,
+    *,
+    service: ZoteroFulltextService | None = None,
+):
+    """Create the MCP server instance.
 
-RESOURCE_ANNOTATIONS = {
-    "readOnlyHint": True,
-    "idempotentHint": True,
-}
-
-
-def create_server(settings: Settings | None = None):
-    """Create the FastMCP server instance."""
+    ``service`` can be injected for testing; otherwise one is built from
+    ``settings`` (or the environment).
+    """
     try:
-        from fastmcp import FastMCP
+        from mcp.server.fastmcp import FastMCP
+        from mcp.types import ToolAnnotations
     except ImportError as exc:
         raise RuntimeError(
-            "fastmcp is not installed. Install zotero-fulltext with its runtime dependencies first."
+            "The 'mcp' SDK is not installed. Install zotero-fulltext with its "
+            "runtime dependencies first."
         ) from exc
 
-    runtime_settings = settings or Settings.from_env()
-    service = ZoteroFulltextService(runtime_settings)
+    if service is None:
+        runtime_settings = settings or Settings.from_env()
+        service = ZoteroFulltextService(runtime_settings)
+    else:
+        runtime_settings = settings or service.settings
     service.try_startup_sync()
+
+    # Resource annotations in the MCP SDK carry audience/priority, not the
+    # read-only hints tools use, so hints are attached to tools only.
+    tool_annotations = ToolAnnotations(
+        readOnlyHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
+    )
 
     mcp = FastMCP("zotero")
 
@@ -53,7 +62,7 @@ def create_server(settings: Settings | None = None):
 
     @mcp.tool(
         name="lookup",
-        annotations=TOOL_ANNOTATIONS,
+        annotations=tool_annotations,
         description=(
             "Look up a Zotero item by its exact citekey (a single token with no spaces, "
             "e.g. 'atz2022' not 'atz 2022'). Use this first when you know the citekey."
@@ -64,7 +73,7 @@ def create_server(settings: Settings | None = None):
 
     @mcp.tool(
         name="search",
-        annotations=TOOL_ANNOTATIONS,
+        annotations=tool_annotations,
         description=(
             "Search Zotero metadata and indexed fulltext by keywords. "
             "For a known citekey (e.g. 'atz2022'), use `lookup` instead."
@@ -86,7 +95,7 @@ def create_server(settings: Settings | None = None):
 
     @mcp.tool(
         name="collections",
-        annotations=TOOL_ANNOTATIONS,
+        annotations=tool_annotations,
         description="List Zotero collections in the current library.",
     )
     def collections() -> dict[str, Any]:
@@ -94,7 +103,7 @@ def create_server(settings: Settings | None = None):
 
     @mcp.tool(
         name="fulltext",
-        annotations=TOOL_ANNOTATIONS,
+        annotations=tool_annotations,
         description="Return numbered paragraphs for a Zotero item's indexed fulltext. The citekey is a single token with no spaces (e.g. 'atz2022').",
     )
     def fulltext(
@@ -106,7 +115,7 @@ def create_server(settings: Settings | None = None):
 
     @mcp.tool(
         name="fulltext_search",
-        annotations=TOOL_ANNOTATIONS,
+        annotations=tool_annotations,
         description="Search within a Zotero item's indexed fulltext and return local paragraph context. The citekey is a single token with no spaces (e.g. 'atz2022').",
     )
     def fulltext_search(
@@ -128,7 +137,6 @@ def create_server(settings: Settings | None = None):
     @mcp.resource(
         "zotero://library",
         name="Zotero Library Summary",
-        annotations=RESOURCE_ANNOTATIONS,
         mime_type="application/json",
     )
     def library_resource() -> str:
@@ -137,7 +145,6 @@ def create_server(settings: Settings | None = None):
     @mcp.resource(
         "zotero://item/{citekey}",
         name="Zotero Item",
-        annotations=RESOURCE_ANNOTATIONS,
         mime_type="application/json",
     )
     def item_resource(citekey: str) -> str:
@@ -146,7 +153,6 @@ def create_server(settings: Settings | None = None):
     @mcp.resource(
         "zotero://fulltext/{citekey}",
         name="Zotero Fulltext",
-        annotations=RESOURCE_ANNOTATIONS,
         mime_type="application/json",
     )
     def fulltext_resource(citekey: str) -> str:

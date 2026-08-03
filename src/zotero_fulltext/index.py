@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import re
 import unicodedata
@@ -161,6 +162,7 @@ class MetadataIndex:
     """Persistent citekey and attachment metadata."""
 
     library_version: int | None = None
+    server_id: str | None = None
     items_by_key: dict[str, ItemRecord] | None = None
     attachments_by_key: dict[str, AttachmentRecord] | None = None
     citekey_to_item_key: dict[str, str] | None = None
@@ -175,27 +177,36 @@ class MetadataIndex:
 
     @classmethod
     def load(cls, path: Path) -> "MetadataIndex":
-        """Load an index from disk, or return an empty one."""
+        """Load an index from disk, or return an empty one.
+
+        A missing, unreadable, or corrupt file yields an empty index so the
+        next refresh rebuilds it rather than failing startup.
+        """
         if not path.exists():
             return cls()
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        return cls(
-            library_version=payload.get("library_version"),
-            items_by_key={
-                item_key: ItemRecord.from_dict(item)
-                for item_key, item in payload.get("items_by_key", {}).items()
-            },
-            attachments_by_key={
-                item_key: AttachmentRecord.from_dict(item)
-                for item_key, item in payload.get("attachments_by_key", {}).items()
-            },
-        )._rebuild_citekey_map()
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            return cls(
+                library_version=payload.get("library_version"),
+                server_id=payload.get("server_id"),
+                items_by_key={
+                    item_key: ItemRecord.from_dict(item)
+                    for item_key, item in payload.get("items_by_key", {}).items()
+                },
+                attachments_by_key={
+                    item_key: AttachmentRecord.from_dict(item)
+                    for item_key, item in payload.get("attachments_by_key", {}).items()
+                },
+            )._rebuild_citekey_map()
+        except (OSError, ValueError, KeyError, TypeError):
+            return cls()
 
     def save(self, path: Path) -> None:
-        """Persist the index to disk."""
+        """Persist the index to disk atomically (temp file + os.replace)."""
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "library_version": self.library_version,
+            "server_id": self.server_id,
             "items_by_key": {
                 item_key: item.to_dict() for item_key, item in sorted(self.items_by_key.items())
             },
@@ -204,7 +215,14 @@ class MetadataIndex:
                 for item_key, item in sorted(self.attachments_by_key.items())
             },
         }
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        text = json.dumps(payload, indent=2, sort_keys=True)
+        tmp_path = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+        try:
+            tmp_path.write_text(text, encoding="utf-8")
+            os.replace(tmp_path, path)
+        except BaseException:
+            tmp_path.unlink(missing_ok=True)
+            raise
 
     @classmethod
     def rebuild_from_items(

@@ -59,26 +59,58 @@ class ZoteroFulltextService:
             self._last_refresh_check = now
             return True
 
+        previous_version = self.index.library_version
         changed, versions, current_version = self.client.get_changed_item_versions(
-            self.index.library_version,
-            if_modified_since_version=self.index.library_version,
+            previous_version,
+            if_modified_since_version=previous_version,
         )
         if not changed:
             self._last_refresh_check = now
             return False
 
-        deleted_item_keys, deleted_version = self.client.get_deleted(self.index.library_version)
+        deleted_item_keys, deleted_version = self.client.get_deleted(previous_version)
         deleted_item_key_set = set(deleted_item_keys)
         changed_item_keys = [key for key in versions if key not in deleted_item_key_set]
         changed_items: list[dict[str, Any]] = []
         for batch in batched(changed_item_keys, 50):
             changed_items.extend(self.client.get_items_by_keys(batch))
 
-        next_version = current_version or deleted_version or self.index.library_version
+        # Never let the stored version move backwards: if Last-Modified-Version
+        # or /deleted are unavailable, keeping the old version would replay the
+        # same delta forever and could permanently skip deletions.
+        next_version = max(
+            current_version or 0,
+            deleted_version or 0,
+            previous_version or 0,
+        )
         self.index.apply_updates(changed_items, deleted_item_keys, next_version)
+        self._invalidate_changed_fulltext(previous_version)
         self.index.save(self.settings.metadata_path)
         self._last_refresh_check = now
         return True
+
+    def _invalidate_changed_fulltext(self, since: int | None) -> None:
+        """Evict cached paragraphs for attachments whose fulltext changed.
+
+        Zotero re-indexes fulltext (e.g. after re-OCR) without necessarily
+        touching item metadata, so the paragraph cache is refreshed from the
+        dedicated ``/fulltext?since=`` endpoint. A changed ``Zotero-Server-ID``
+        means the database was swapped, so the whole cache is dropped.
+        """
+        try:
+            versions, server_id = self.client.get_changed_fulltext(since or 0)
+        except ZoteroClientError:
+            return
+        if (
+            server_id is not None
+            and self.index.server_id
+            and server_id != self.index.server_id
+        ):
+            self.paragraph_cache.clear()
+        if server_id is not None:
+            self.index.server_id = server_id
+        for attachment_key in versions:
+            self.paragraph_cache.delete(attachment_key)
 
     def library_summary(self) -> dict[str, Any]:
         """Return a lightweight snapshot of the indexed library."""
@@ -365,7 +397,6 @@ class ZoteroFulltextService:
         if best_paragraphs is None:
             return None, "NO_FULLTEXT_INDEX"
         self.paragraph_cache.set(record.attachment_key, best_paragraphs)
-        self.index.save(self.settings.metadata_path)
         return best_paragraphs, None
 
     def _record_matches_filters(

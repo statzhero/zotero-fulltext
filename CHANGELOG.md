@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Switch the runtime from the `fastmcp` wrapper to the official `mcp` SDK, dropping around 15 unused transitive dependencies. Installing and running the server is unchanged (`uvx zotero-fulltext`, stdio).
+- Freshness: detect re-indexed attachment fulltext via Zotero's `/fulltext?since=` endpoint and evict stale cached paragraphs. The cache resets when the Zotero database (`Zotero-Server-ID`) changes.
+- Robustness: write the metadata index atomically (temp file plus rename) and recover from a corrupt index instead of failing startup. The stored library version can no longer move backwards, which previously could permanently skip deletions. The full index is no longer rewritten on every fulltext read.
+- Docs: document all supported environment variables in the README.
+- Remove the orphaned `.codex-mcp.json` (the Codex plugin already uses `.mcp.json`).
+
 ## 0.3.4
 
 - Fix: when an item has several attachments (for example the article plus a supplemental appendix), `fulltext` now returns the attachment with the most indexed text instead of whichever attachment key sorts first. This stops a short appendix from being served in place of the full paper.

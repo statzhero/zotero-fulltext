@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zotero-fulltext"
-version = "0.3.4"
+version = "0.4.0"
 description = "Fast fulltext Zotero MCP for Codex and Claude."
 readme = "README.md"
 license = { text = "MIT" }
@@ -13,7 +13,7 @@ authors = [
   { name = "Ulrich Atz", email = "ulrich.atz@unibocconi.it" }
 ]
 dependencies = [
-  "fastmcp>=3.0.0,<4.0.0"
+  "mcp>=1.16,<2.0"
 ]
 keywords = ["mcp", "zotero", "claude", "codex", "research"]
 classifiers = [

@@ -162,6 +162,16 @@ By default the server connects to a local personal library with no authenticatio
 | `ZOTERO_API_BASE_URL` | `http://127.0.0.1:23119/api` | Base URL for the Zotero API |
 | `ZOTERO_MAX_PARAGRAPH_CHARS` | `1800` | Maximum characters per returned fulltext chunk |
 | `ZOTERO_MAX_FULLTEXT_CHARS` | `60000` | Soft character budget for each `fulltext` response; continue with `next_offset` |
+| `ZOTERO_CACHE_DIR` | `~/.cache/zotero-fulltext` | Directory for the persistent metadata index |
+| `ZOTERO_STARTUP_SYNC` | `true` | Sync the library index once at startup |
+| `ZOTERO_INDEX_REFRESH_MIN_INTERVAL_SEC` | `15` | Minimum seconds between incremental index refreshes |
+| `ZOTERO_PARAGRAPH_CACHE_TTL_SEC` | `7200` | Time-to-live for cached fulltext paragraphs |
+| `ZOTERO_PARAGRAPH_CACHE_SIZE` | `128` | Maximum number of documents kept in the paragraph cache |
+| `ZOTERO_DEFAULT_SEARCH_LIMIT` | `10` | Default number of search results |
+| `ZOTERO_DEFAULT_FULLTEXT_LIMIT` | `80` | Default number of paragraphs per `fulltext` response |
+| `ZOTERO_DEFAULT_FULLTEXT_CONTEXT` | `1` | Default paragraphs of context around each `fulltext_search` match |
+
+`ZOTERO_USER_ID` is accepted as an alias for `ZOTERO_LIBRARY_ID`. The `ZOTERO_LIBRARY_ID` default of `0` applies to user libraries; group libraries require an explicit ID.
 
 Example for a group library in Claude Code:
 

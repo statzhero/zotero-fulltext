@@ -30,6 +30,10 @@ class TTLCache(Generic[K, V]):
         """Remove all cache entries."""
         self._entries.clear()
 
+    def delete(self, key: K) -> None:
+        """Remove a single cache entry if present."""
+        self._entries.pop(key, None)
+
     def get(self, key: K) -> V | None:
         """Retrieve a cached value when present and not expired."""
         entry = self._entries.get(key)

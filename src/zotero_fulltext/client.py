@@ -182,6 +182,32 @@ class ZoteroClient:
             raise ZoteroClientError("Expected JSON object for Zotero fulltext response.")
         return payload
 
+    def get_changed_fulltext(self, since: int) -> tuple[dict[str, int], str | None]:
+        """Return attachment fulltext versions changed since a library version.
+
+        Maps attachment item key to its fulltext content version, and also
+        returns the ``Zotero-Server-ID`` header so callers can detect a
+        swapped database. Returns an empty mapping when the endpoint is
+        unavailable (older Zotero builds 404 on ``/fulltext``).
+        """
+        status, headers, payload = self._request_json(
+            "GET",
+            f"{self.settings.library_prefix}/fulltext",
+            params={"since": since},
+        )
+        server_id = _header_str(headers, "Zotero-Server-ID")
+        if status == 404:
+            return {}, server_id
+        if status != 200:
+            raise ZoteroClientError(
+                f"Unexpected Zotero status {status} while checking fulltext changes."
+            )
+        versions = {
+            str(key): int(value)
+            for key, value in (payload or {}).items()
+        }
+        return versions, server_id
+
     def _request_json(
         self,
         method: str,
@@ -262,3 +288,11 @@ def _normalize_params(params: dict[str, object] | None) -> dict[str, object]:
 def _header_int(headers: dict[str, str], name: str) -> int | None:
     raw = headers.get(name)
     return None if raw in (None, "") else int(raw)
+
+
+def _header_str(headers: dict[str, str], name: str) -> str | None:
+    target = name.lower()
+    for key, value in headers.items():
+        if key.lower() == target:
+            return None if value in (None, "") else str(value)
+    return None
