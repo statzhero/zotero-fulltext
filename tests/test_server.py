@@ -27,6 +27,9 @@ class FakeClient:
     def get_deleted(self, since):
         return [], since
 
+    def get_changed_fulltext(self, since):
+        return {}, None
+
     def get_items_by_keys(self, item_keys):
         return []
 

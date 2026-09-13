@@ -33,6 +33,10 @@ class ZoteroFulltextService:
             self.settings.paragraph_cache_ttl_sec,
         )
         self._last_refresh_check = 0.0
+        # Highest fulltext content version already processed. Content versions
+        # can run ahead of the item cursor, so without this the same change
+        # would be replayed (and the cache re-evicted) on every refresh tick.
+        self._fulltext_since: int | None = None
         # Serializes index mutation and persistence; tool handlers run on
         # worker threads under MCP SDK 2.x.
         self._write_lock = Lock()
@@ -73,6 +77,9 @@ class ZoteroFulltextService:
             if_modified_since_version=previous_version,
         )
         if not changed:
+            # Fulltext can be re-indexed (e.g. re-OCR) without any item
+            # metadata changing, so the fulltext check runs on every tick.
+            self._invalidate_changed_fulltext(previous_version)
             self._last_refresh_check = now
             return False
 
@@ -100,13 +107,14 @@ class ZoteroFulltextService:
     def _invalidate_changed_fulltext(self, since: int | None) -> None:
         """Evict cached paragraphs for attachments whose fulltext changed.
 
-        Zotero re-indexes fulltext (e.g. after re-OCR) without necessarily
-        touching item metadata, so the paragraph cache is refreshed from the
-        dedicated ``/fulltext?since=`` endpoint. A changed ``Zotero-Server-ID``
-        means the database was swapped, so the whole cache is dropped.
+        The paragraph cache is refreshed from the dedicated
+        ``/fulltext?since=`` endpoint, using the highest content version seen
+        so far as the cursor. A changed ``Zotero-Server-ID`` means the
+        database was swapped, so the whole cache is dropped.
         """
+        cursor = max(self._fulltext_since or 0, since or 0)
         try:
-            versions, server_id = self.client.get_changed_fulltext(since or 0)
+            versions, server_id = self.client.get_changed_fulltext(cursor)
         except ZoteroClientError:
             return
         if (
@@ -115,10 +123,13 @@ class ZoteroFulltextService:
             and server_id != self.index.server_id
         ):
             self.paragraph_cache.clear()
+            self._fulltext_since = None
         if server_id is not None:
             self.index.server_id = server_id
         for attachment_key in versions:
             self.paragraph_cache.delete(attachment_key)
+        if versions:
+            self._fulltext_since = max(self._fulltext_since or 0, *versions.values())
 
     def library_summary(self) -> dict[str, Any]:
         """Return a lightweight snapshot of the indexed library."""

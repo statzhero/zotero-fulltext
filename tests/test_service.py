@@ -63,6 +63,7 @@ class FakeClient:
         self.collections_payload: list[dict[str, object]] = []
         self.children_payload: dict[str, list[dict[str, object]]] = {}
         self.fulltexts: dict[str, dict[str, object]] = {}
+        self.fulltext_versions: dict[str, int] = {}
 
     def fetch_all_items(self):
         return [], 0
@@ -72,6 +73,10 @@ class FakeClient:
 
     def get_deleted(self, since):
         return [], since
+
+    def get_changed_fulltext(self, since):
+        changed = {key: version for key, version in self.fulltext_versions.items() if version > since}
+        return changed, None
 
     def get_items_by_keys(self, item_keys):
         return []
@@ -172,6 +177,35 @@ class ZoteroFulltextServiceTest(unittest.TestCase):
         self.assertTrue(first["found"])
         self.assertEqual(client.fulltext_calls, 1)
         self.assertEqual(second["paragraph_count"], 3)
+
+    def test_reindexed_fulltext_evicted_without_metadata_change(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings = self.make_settings(temp_dir)
+            settings.index_refresh_min_interval_sec = 0
+            client = FakeClient()
+            index = MetadataIndex.rebuild_from_items(
+                [
+                    make_item("AAA111", title="Paper", citation_key="paper2020"),
+                    make_attachment("ATTPDF", "AAA111"),
+                ],
+                5,
+            )
+            client.fulltexts["ATTPDF"] = {"content": "Old OCR text."}
+            service = ZoteroFulltextService(settings, client=client, index=index)
+            first = service.fulltext("paper2020")
+
+            # Zotero re-indexes the attachment (e.g. re-OCR); no item
+            # metadata changes, only the fulltext content version moves.
+            client.fulltexts["ATTPDF"] = {"content": "New OCR text."}
+            client.fulltext_versions["ATTPDF"] = 6
+            second = service.fulltext("paper2020")
+            third = service.fulltext("paper2020")
+        self.assertEqual(first["paragraphs"][0]["text"], "Old OCR text.")
+        self.assertEqual(second["paragraphs"][0]["text"], "New OCR text.")
+        # The already-seen content version must not be replayed: the third
+        # call is served from cache instead of re-fetching.
+        self.assertEqual(third["paragraphs"][0]["text"], "New OCR text.")
+        self.assertEqual(client.fulltext_calls, 2)
 
     def test_fulltext_search_reports_missing_fulltext_cleanly(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

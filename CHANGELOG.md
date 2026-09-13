@@ -4,6 +4,7 @@
 
 - Support the new MCP protocol (2026-07-28) used by current Claude Code and Codex releases (upgrades the `mcp` SDK to 2.x). Older clients keep working.
 - Parallel tool calls, e.g. an agent reading several papers at once, now run concurrently and safely.
+- Fulltext that Zotero re-indexes (e.g. a re-OCRed or replaced PDF) now shows up on the next read, even when no item metadata changed. Previously the old text could be served from cache for up to two hours.
 - Nothing changes about installation or configuration.
 
 ## 0.4.0
