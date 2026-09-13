@@ -21,12 +21,12 @@ def create_server(
     ``settings`` (or the environment).
     """
     try:
-        from mcp.server.fastmcp import FastMCP
+        from mcp.server.mcpserver import MCPServer
         from mcp.types import ToolAnnotations
     except ImportError as exc:
         raise RuntimeError(
-            "The 'mcp' SDK is not installed. Install zotero-fulltext with its "
-            "runtime dependencies first."
+            "The 'mcp' SDK (>=2.2) is not installed. Install zotero-fulltext "
+            "with its runtime dependencies first."
         ) from exc
 
     if service is None:
@@ -39,12 +39,12 @@ def create_server(
     # Resource annotations in the MCP SDK carry audience/priority, not the
     # read-only hints tools use, so hints are attached to tools only.
     tool_annotations = ToolAnnotations(
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
     )
 
-    mcp = FastMCP("zotero")
+    mcp = MCPServer("zotero")
 
     def safe_call(callback, *args, **kwargs) -> dict[str, Any]:
         try:

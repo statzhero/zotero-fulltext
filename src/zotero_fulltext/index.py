@@ -312,9 +312,11 @@ class MetadataIndex:
 
     def attachment_candidates(self, parent_item_key: str) -> list[AttachmentRecord]:
         """Return readable attachment candidates for a parent item."""
+        # Snapshot first: readers on other threads must not iterate the dict
+        # while a refresh mutates it.
         candidates = [
             attachment
-            for attachment in self.attachments_by_key.values()
+            for attachment in list(self.attachments_by_key.values())
             if attachment.parent_item_key == parent_item_key and attachment.is_text_like()
         ]
         return sorted(candidates, key=_attachment_priority)
@@ -472,12 +474,15 @@ class MetadataIndex:
             record.attachment_key = candidates[0].item_key if candidates else None
 
     def _rebuild_citekey_map(self) -> "MetadataIndex":
-        self.citekey_to_item_key = {}
-        for item in self.items_by_key.values():
-            self.citekey_to_item_key[normalize_lookup_key(item.citation_key)] = item.item_key
+        # Build into a local dict and swap at the end so concurrent lookups
+        # never see a partially rebuilt map.
+        citekey_map: dict[str, str] = {}
+        for item in list(self.items_by_key.values()):
+            citekey_map[normalize_lookup_key(item.citation_key)] = item.item_key
             for alias in item.aliases:
                 normalized = normalize_lookup_key(alias)
-                self.citekey_to_item_key.setdefault(normalized, item.item_key)
+                citekey_map.setdefault(normalized, item.item_key)
+        self.citekey_to_item_key = citekey_map
         return self
 
 

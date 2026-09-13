@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- Support the new MCP protocol (2026-07-28) used by current Claude Code and Codex releases (upgrades the `mcp` SDK to 2.x). Older clients keep working.
+- Parallel tool calls, e.g. an agent reading several papers at once, now run concurrently and safely.
+- Nothing changes about installation or configuration.
+
 ## 0.4.0
 
 - Switch the runtime from the `fastmcp` wrapper to the official `mcp` SDK, dropping around 15 unused transitive dependencies. Installing and running the server is unchanged (`uvx zotero-fulltext`, stdio).

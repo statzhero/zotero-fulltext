@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from threading import Lock
 from time import monotonic
 from typing import Any
 
@@ -32,6 +33,9 @@ class ZoteroFulltextService:
             self.settings.paragraph_cache_ttl_sec,
         )
         self._last_refresh_check = 0.0
+        # Serializes index mutation and persistence; tool handlers run on
+        # worker threads under MCP SDK 2.x.
+        self._write_lock = Lock()
 
     def try_startup_sync(self) -> None:
         """Attempt an eager startup sync without failing server startup."""
@@ -44,6 +48,10 @@ class ZoteroFulltextService:
 
     def refresh_metadata(self, *, force: bool = False) -> bool:
         """Refresh the metadata index from Zotero."""
+        with self._write_lock:
+            return self._refresh_metadata_locked(force=force)
+
+    def _refresh_metadata_locked(self, *, force: bool) -> bool:
         now = monotonic()
         if (
             not force
@@ -352,8 +360,9 @@ class ZoteroFulltextService:
             if item_type == "attachment":
                 attachment_children.append(child)
         if attachment_children:
-            self.index.apply_updates(attachment_children, [], self.index.library_version)
-            self.index.save(self.settings.metadata_path)
+            with self._write_lock:
+                self.index.apply_updates(attachment_children, [], self.index.library_version)
+                self.index.save(self.settings.metadata_path)
 
     def _paragraphs_for_record(self, record: ItemRecord) -> tuple[list[str] | None, str | None]:
         attachment_candidates = self.index.attachment_candidates(record.item_key)

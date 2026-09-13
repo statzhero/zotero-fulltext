@@ -87,7 +87,7 @@ class CreateServerTest(unittest.TestCase):
             templates = anyio.run(mcp.list_resource_templates)
         self.assertIn("zotero://library", [str(resource.uri) for resource in resources])
         self.assertEqual(
-            sorted(template.uriTemplate for template in templates),
+            sorted(template.uri_template for template in templates),
             ["zotero://fulltext/{citekey}", "zotero://item/{citekey}"],
         )
 
@@ -98,7 +98,8 @@ class CreateServerTest(unittest.TestCase):
             async def call():
                 return await mcp.call_tool("collections", {})
 
-            _content, structured = anyio.run(call)
+            result = anyio.run(call)
+        structured = result.structured_content
         self.assertFalse(structured["available"])
         self.assertEqual(structured["error"], "ZOTERO_UNAVAILABLE")
 
