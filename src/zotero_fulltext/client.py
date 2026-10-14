@@ -58,7 +58,12 @@ class ZoteroClient:
             headers=headers,
         )
         if status == 304:
-            return False, {}, if_modified_since_version
+            # Keep the header: Zotero also answers 304 when its version is
+            # below ours, which is how callers detect a reset counter.
+            current_version = _header_int(response_headers, "Last-Modified-Version")
+            if current_version is None:
+                current_version = if_modified_since_version
+            return False, {}, current_version
         if status != 200:
             raise ZoteroClientError(
                 f"Unexpected Zotero status {status} while checking for item changes."

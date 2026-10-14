@@ -64,19 +64,24 @@ class FakeClient:
         self.children_payload: dict[str, list[dict[str, object]]] = {}
         self.fulltexts: dict[str, dict[str, object]] = {}
         self.fulltext_versions: dict[str, int] = {}
+        self.all_items: list[dict[str, object]] = []
+        self.library_version: int | None = None
+        self.server_id: str | None = None
 
     def fetch_all_items(self):
-        return [], 0
+        return self.all_items, self.library_version or 0
 
     def get_changed_item_versions(self, since, *, if_modified_since_version=None):
-        return False, {}, since
+        # Mirrors Zotero: 304 whenever its version is not above the cursor.
+        current = since if self.library_version is None else self.library_version
+        return False, {}, current
 
     def get_deleted(self, since):
         return [], since
 
     def get_changed_fulltext(self, since):
         changed = {key: version for key, version in self.fulltext_versions.items() if version > since}
-        return changed, None
+        return changed, self.server_id
 
     def get_items_by_keys(self, item_keys):
         return []
@@ -206,6 +211,51 @@ class ZoteroFulltextServiceTest(unittest.TestCase):
         # call is served from cache instead of re-fetching.
         self.assertEqual(third["paragraphs"][0]["text"], "New OCR text.")
         self.assertEqual(client.fulltext_calls, 2)
+
+    def test_reset_library_version_triggers_full_rebuild(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings = self.make_settings(temp_dir)
+            client = FakeClient()
+            index = MetadataIndex.rebuild_from_items(
+                [make_item("AAA111", title="Old", citation_key="old2020", version=26851)],
+                26853,
+            )
+            # Zotero's counter restarts far below the stored cursor, so the
+            # incremental check answers "not modified" for the new item.
+            client.library_version = 58
+            client.all_items = [
+                make_item("AAA111", title="Old", citation_key="old2020", version=0),
+                make_item("BBB222", title="New", citation_key="new2026", version=58),
+            ]
+            service = ZoteroFulltextService(settings, client=client, index=index)
+            refreshed = service.refresh_metadata(force=True)
+            result = service.lookup("new2026")
+            saved = MetadataIndex.load(settings.metadata_path)
+        self.assertTrue(refreshed)
+        self.assertTrue(result["found"])
+        self.assertEqual(service.index.library_version, 58)
+        self.assertEqual(saved.library_version, 58)
+
+    def test_changed_server_id_triggers_full_rebuild(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings = self.make_settings(temp_dir)
+            client = FakeClient()
+            index = MetadataIndex.rebuild_from_items(
+                [make_item("AAA111", title="Old", citation_key="old2020")],
+                5,
+            )
+            index.server_id = "old-db"
+            # A different database whose counter happens to match ours.
+            client.library_version = 5
+            client.server_id = "new-db"
+            client.all_items = [make_item("BBB222", title="New", citation_key="new2026")]
+            service = ZoteroFulltextService(settings, client=client, index=index)
+            refreshed = service.refresh_metadata(force=True)
+            result = service.lookup("new2026")
+        self.assertTrue(refreshed)
+        self.assertTrue(result["found"])
+        self.assertFalse(service.lookup("old2020")["found"])
+        self.assertEqual(service.index.server_id, "new-db")
 
     def test_fulltext_search_reports_missing_fulltext_cleanly(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

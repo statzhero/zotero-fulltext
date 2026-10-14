@@ -66,6 +66,21 @@ class ZoteroClientTest(unittest.TestCase):
         with self.assertRaises(ZoteroClientError):
             client.get_deleted(5)
 
+    def test_not_modified_reports_lower_library_version(self) -> None:
+        # Zotero answers 304 when its version is below the cursor too.
+        client = FakeDeletedClient((304, {"Last-Modified-Version": "58"}, None))
+        changed, versions, version = client.get_changed_item_versions(
+            26853, if_modified_since_version=26853
+        )
+        self.assertFalse(changed)
+        self.assertEqual(versions, {})
+        self.assertEqual(version, 58)
+
+    def test_not_modified_without_header_keeps_cursor(self) -> None:
+        client = FakeDeletedClient((304, {}, None))
+        _, _, version = client.get_changed_item_versions(5, if_modified_since_version=5)
+        self.assertEqual(version, 5)
+
 
 if __name__ == "__main__":
     unittest.main()

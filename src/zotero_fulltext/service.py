@@ -65,21 +65,24 @@ class ZoteroFulltextService:
             return False
 
         if self.index.library_version is None:
-            items, version = self.client.fetch_all_items()
-            self.index = MetadataIndex.rebuild_from_items(items, version, previous=self.index)
-            self.index.save(self.settings.metadata_path)
-            self._last_refresh_check = now
-            return True
+            return self._rebuild_index_locked(now)
 
         previous_version = self.index.library_version
         changed, versions, current_version = self.client.get_changed_item_versions(
             previous_version,
             if_modified_since_version=previous_version,
         )
+        if current_version is not None and current_version < previous_version:
+            # Zotero's version counter went backwards (database restored,
+            # reset, or migrated by an update). Zotero answers 304 to any
+            # If-Modified-Since-Version above its own, so an incremental sync
+            # would report "no changes" until the counter catches up.
+            return self._rebuild_index_locked(now)
         if not changed:
             # Fulltext can be re-indexed (e.g. re-OCR) without any item
             # metadata changing, so the fulltext check runs on every tick.
-            self._invalidate_changed_fulltext(previous_version)
+            if self._invalidate_changed_fulltext(previous_version):
+                return self._rebuild_index_locked(now)
             self._last_refresh_check = now
             return False
 
@@ -99,29 +102,45 @@ class ZoteroFulltextService:
             previous_version or 0,
         )
         self.index.apply_updates(changed_items, deleted_item_keys, next_version)
-        self._invalidate_changed_fulltext(previous_version)
+        if self._invalidate_changed_fulltext(previous_version):
+            return self._rebuild_index_locked(now)
         self.index.save(self.settings.metadata_path)
         self._last_refresh_check = now
         return True
 
-    def _invalidate_changed_fulltext(self, since: int | None) -> None:
+    def _rebuild_index_locked(self, now: float) -> bool:
+        """Rebuild the index from a full snapshot and drop cached fulltext."""
+        server_id = self.index.server_id
+        items, version = self.client.fetch_all_items()
+        # Passing the old index keeps generated citekeys stable.
+        self.index = MetadataIndex.rebuild_from_items(items, version, previous=self.index)
+        self.index.server_id = server_id
+        self.paragraph_cache.clear()
+        self._fulltext_since = None
+        self.index.save(self.settings.metadata_path)
+        self._last_refresh_check = now
+        return True
+
+    def _invalidate_changed_fulltext(self, since: int | None) -> bool:
         """Evict cached paragraphs for attachments whose fulltext changed.
 
         The paragraph cache is refreshed from the dedicated
         ``/fulltext?since=`` endpoint, using the highest content version seen
         so far as the cursor. A changed ``Zotero-Server-ID`` means the
-        database was swapped, so the whole cache is dropped.
+        database was swapped, so the whole cache is dropped and ``True`` is
+        returned so the caller rebuilds the metadata index as well.
         """
         cursor = max(self._fulltext_since or 0, since or 0)
         try:
             versions, server_id = self.client.get_changed_fulltext(cursor)
         except ZoteroClientError:
-            return
-        if (
+            return False
+        swapped = bool(
             server_id is not None
             and self.index.server_id
             and server_id != self.index.server_id
-        ):
+        )
+        if swapped:
             self.paragraph_cache.clear()
             self._fulltext_since = None
         if server_id is not None:
@@ -130,6 +149,7 @@ class ZoteroFulltextService:
             self.paragraph_cache.delete(attachment_key)
         if versions:
             self._fulltext_since = max(self._fulltext_since or 0, *versions.values())
+        return swapped
 
     def library_summary(self) -> dict[str, Any]:
         """Return a lightweight snapshot of the indexed library."""
