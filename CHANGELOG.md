@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+
+- Fix: when Zotero's library version moves backwards (a restored, reset, or migrated database), the server now rebuilds its index. Previously Zotero answered "no changes" to every check, so new and edited items stayed invisible until the version counter caught up.
+- A changed Zotero database (`Zotero-Server-ID`) now also rebuilds the metadata index. Before, only the fulltext cache was dropped.
+
 ## 0.5.0
 
 - Support the new MCP protocol (2026-07-28) used by current Claude Code and Codex releases (upgrades the `mcp` SDK to 2.x). Older clients keep working.
