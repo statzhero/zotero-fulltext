@@ -21,6 +21,8 @@ def make_item(
     version: int = 1,
     collections: list[str] | None = None,
     tags: list[dict[str, str]] | None = None,
+    creators: list[dict[str, str]] | None = None,
+    date: str = "2020",
 ) -> dict[str, object]:
     return {
         "key": key,
@@ -30,10 +32,10 @@ def make_item(
             "version": version,
             "itemType": "journalArticle",
             "title": title,
-            "date": "2020",
+            "date": date,
             "citationKey": citation_key,
             "extra": extra,
-            "creators": [{"creatorType": "author", "lastName": "Smith"}],
+            "creators": creators or [{"creatorType": "author", "lastName": "Smith"}],
             "collections": collections or [],
             "tags": tags or [],
         },
@@ -59,6 +61,7 @@ def make_attachment(key: str, parent: str) -> dict[str, object]:
 class FakeClient:
     def __init__(self) -> None:
         self.fulltext_calls = 0
+        self.search_calls = 0
         self.search_payload: list[dict[str, object]] = []
         self.collections_payload: list[dict[str, object]] = []
         self.children_payload: dict[str, list[dict[str, object]]] = {}
@@ -87,7 +90,9 @@ class FakeClient:
         return []
 
     def search_items(self, query, *, collection=None, tag=None, limit=10):
-        return self.search_payload
+        # Zotero pages its quick search, so rows past ``limit`` never arrive.
+        self.search_calls += 1
+        return self.search_payload[:limit]
 
     def list_collections(self):
         return self.collections_payload
@@ -292,6 +297,154 @@ class ZoteroFulltextServiceTest(unittest.TestCase):
             result = service.search("paper2020")
         self.assertEqual(result["results"][0]["citekey"], "paper2020")
         self.assertEqual(result["results"][0]["match_source"], "citekey")
+
+    def make_author_search_library(self, temp_dir: str) -> ZoteroFulltextService:
+        """Mirror the live failure: Leuz and Wysocki (2016) plus 120 citing papers.
+
+        Zotero's quick search returns each citing paper's attachment as its
+        own row, newest first, and the cited item itself only after all of
+        them, beyond the 100-row page the service requests.
+        """
+        authors = [
+            {"creatorType": "author", "lastName": "Leuz"},
+            {"creatorType": "author", "lastName": "Wysocki"},
+        ]
+        items = [
+            make_item(
+                "LEUZ01",
+                title="The Economics of Disclosure and Financial Reporting Regulation",
+                citation_key="leuz2016",
+                creators=authors,
+                date="2016",
+            ),
+            make_item(
+                "LEUZ02",
+                title="Earnings management and investor protection",
+                citation_key="leuz2003",
+                creators=[authors[0], {"creatorType": "author", "lastName": "Nanda"}, authors[1]],
+                date="2003",
+            ),
+            make_item(
+                "CETIN1",
+                title="The Real Effects of Accounting on R&D Alliance Formation",
+                citation_key="cetin2026",
+                creators=[{"creatorType": "author", "lastName": "Çetin"}],
+                date="2026",
+            ),
+            make_attachment("LEUZPDF", "LEUZ01"),
+        ]
+        citing_rows = []
+        for number in range(120):
+            item_key = f"CITE{number:03d}"
+            items.append(
+                make_item(
+                    item_key,
+                    title=f"Disclosure study {number}",
+                    citation_key=f"citer{number}",
+                    creators=[{"creatorType": "author", "lastName": f"Citer{number}"}],
+                )
+            )
+            attachment = make_attachment(f"PDF{number:03d}", item_key)
+            items.append(attachment)
+            citing_rows.append(attachment)
+        client = FakeClient()
+        client.search_payload = [*citing_rows, items[0]]
+        settings = self.make_settings(temp_dir)
+        return ZoteroFulltextService(
+            settings,
+            client=client,
+            index=MetadataIndex.rebuild_from_items(items, 5),
+        )
+
+    def test_author_search_ranks_item_above_citing_attachments(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = self.make_author_search_library(temp_dir)
+            result = service.search("Leuz Wysocki", limit=25)
+        self.assertEqual(result["results"][0]["citekey"], "leuz2016")
+        self.assertEqual(result["results"][0]["match_source"], "metadata")
+        self.assertEqual(result["results"][1]["citekey"], "leuz2003")
+        self.assertEqual(result["count"], 25)
+        self.assertEqual(
+            {hit["match_source"] for hit in result["results"][2:]},
+            {"attachment"},
+        )
+
+    def test_author_search_with_year_and_topic_words(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = self.make_author_search_library(temp_dir)
+            with_year = service.search("Leuz Wysocki 2016", limit=5)
+            long_query = service.search("Leuz Wysocki 2016 real-effects review JAR", limit=5)
+        for result in (with_year, long_query):
+            self.assertEqual(result["results"][0]["citekey"], "leuz2016")
+            self.assertEqual(result["results"][0]["match_source"], "metadata")
+
+    def test_author_search_ignores_diacritics(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = self.make_author_search_library(temp_dir)
+            plain = service.search("Cetin")
+            accented = service.search("ÇETIN 2026")
+        for result in (plain, accented):
+            self.assertEqual(result["results"][0]["citekey"], "cetin2026")
+            self.assertEqual(result["results"][0]["match_source"], "metadata")
+
+    def test_full_metadata_page_skips_zotero_search(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = self.make_author_search_library(temp_dir)
+            result = service.search("Leuz Wysocki", limit=2)
+        self.assertEqual([hit["citekey"] for hit in result["results"]], ["leuz2016", "leuz2003"])
+        self.assertEqual(service.client.search_calls, 0)
+
+    def test_zotero_metadata_hits_rank_above_attachment_hits(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings = self.make_settings(temp_dir)
+            client = FakeClient()
+            abstract_hit = make_item("ABS001", title="Unrelated title", citation_key="abs2020")
+            items = [
+                abstract_hit,
+                make_item("CITE01", title="Another title", citation_key="cite2021"),
+                make_attachment("PDF001", "CITE01"),
+            ]
+            # Zotero matched the first item through its abstract, which the
+            # local index does not search; its row arrives after the PDF row.
+            client.search_payload = [items[2], abstract_hit]
+            service = ZoteroFulltextService(
+                settings,
+                client=client,
+                index=MetadataIndex.rebuild_from_items(items, 5),
+            )
+            result = service.search("bunching")
+        self.assertEqual(
+            [(hit["citekey"], hit["match_source"]) for hit in result["results"]],
+            [("abs2020", "metadata"), ("cite2021", "attachment")],
+        )
+
+    def test_metadata_search_respects_filters(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings = self.make_settings(temp_dir)
+            client = FakeClient()
+            leuz = [{"creatorType": "author", "lastName": "Leuz"}]
+            index = MetadataIndex.rebuild_from_items(
+                [
+                    make_item("AAA111", title="One", citation_key="leuz2016", creators=leuz, collections=["COLL1"]),
+                    make_item("BBB222", title="Two", citation_key="leuz2008", creators=leuz, collections=["COLL2"]),
+                ],
+                5,
+            )
+            service = ZoteroFulltextService(settings, client=client, index=index)
+            result = service.search("Leuz", collection="COLL2")
+        self.assertEqual([hit["citekey"] for hit in result["results"]], ["leuz2008"])
+
+    def test_lookup_miss_suggests_near_citekeys(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service = self.make_author_search_library(temp_dir)
+            near = service.lookup("leuz2016a")
+            unrelated = service.lookup("nobody2016")
+        self.assertFalse(near["found"])
+        self.assertIsNone(near["item"])
+        self.assertEqual([candidate["citekey"] for candidate in near["candidates"]], ["leuz2016"])
+        self.assertEqual(near["candidates"][0]["author_summary"], "Leuz & Wysocki")
+        self.assertFalse(unrelated["found"])
+        self.assertEqual(unrelated["candidates"], [])
 
     def test_exact_citekey_match_respects_collection_filter(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

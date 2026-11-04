@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from zotero_fulltext.index import MetadataIndex
+from zotero_fulltext.index import MetadataIndex, citekey_parts, query_terms, search_tokens
 
 
 def make_item(
@@ -177,6 +177,57 @@ class MetadataIndexTest(unittest.TestCase):
             loaded = MetadataIndex.load(path)
         self.assertEqual(loaded.library_version, 5)
         self.assertIsNotNone(loaded.get_by_citekey("paper2020"))
+
+
+def leuz_library() -> MetadataIndex:
+    leuz = {"creatorType": "author", "lastName": "Leuz"}
+    return MetadataIndex.rebuild_from_items(
+        [
+            make_item("AAA111", title="Disclosure regulation", citation_key="leuz2016", creators=[leuz], date="2016"),
+            make_item("BBB222", title="Going dark", citation_key="leuz2016b", creators=[leuz], date="2016"),
+            make_item("CCC333", title="Proprietary costs", citation_key="leuz2017", creators=[leuz], date="2017"),
+            make_item("DDD444", title="Firms go dark", citation_key="leuz2018", creators=[leuz], date="2018"),
+            # A key in another format is still found through its first author.
+            make_item("EEE555", title="Reporting incentives", citation_key="LeuzEtAl2015", creators=[leuz], date="2015"),
+            make_item("FFF666", title="Disclosure regulation and dark pools", citation_key="smith2016"),
+        ],
+        5,
+    )
+
+
+class MetadataSearchTest(unittest.TestCase):
+    def test_tokens_fold_case_diacritics_and_punctuation(self) -> None:
+        self.assertEqual(search_tokens("Çetin"), ["cetin"])
+        self.assertEqual(search_tokens("Sørensen & Lewis‐Western"), ["sorensen", "lewis", "western"])
+        self.assertEqual(search_tokens("real-effects leuz2016"), ["real", "effects", "leuz", "2016"])
+        self.assertEqual(query_terms("The Economics of a Disclosure, of"), ["economics", "disclosure"])
+
+    def test_citekey_parts(self) -> None:
+        self.assertEqual(citekey_parts("leuz2016a"), ("leuz", 2016))
+        self.assertEqual(citekey_parts("bar-yosef2019"), ("baryosef", 2019))
+        self.assertEqual(citekey_parts("Çetin"), ("cetin", None))
+
+    def test_creator_match_qualifies_and_ranks_by_matched_tokens(self) -> None:
+        index = leuz_library()
+        citekeys = [record.citation_key for record in index.metadata_matches("Leuz 2017")]
+        self.assertEqual(citekeys[0], "leuz2017")
+        self.assertEqual(len(citekeys), 5)
+
+    def test_title_match_needs_every_token(self) -> None:
+        index = leuz_library()
+        full = [record.citation_key for record in index.metadata_matches("disclosure regulation")]
+        partial = index.metadata_matches("disclosure accruals")
+        self.assertCountEqual(full, ["leuz2016", "smith2016"])
+        self.assertEqual(partial, [])
+
+    def test_bare_year_matches_nothing(self) -> None:
+        self.assertEqual(leuz_library().metadata_matches("2016"), [])
+
+    def test_near_citekeys_stay_within_one_year(self) -> None:
+        index = leuz_library()
+        near = [record.citation_key for record in index.near_citekeys("leuz2016a")]
+        self.assertEqual(near, ["leuz2016", "leuz2016b", "leuz2017", "LeuzEtAl2015"])
+        self.assertEqual(index.near_citekeys("2016"), [])
 
 
 if __name__ == "__main__":

@@ -176,6 +176,15 @@ class ZoteroFulltextService:
                 "found": False,
                 "citekey": citekey,
                 "item": None,
+                "candidates": [
+                    {
+                        "citekey": candidate.citation_key,
+                        "title": candidate.title,
+                        "author_summary": candidate.author_summary,
+                        "year": candidate.year,
+                    }
+                    for candidate in self.index.near_citekeys(citekey)
+                ],
             }
         return {
             "source": "zotero-local",
@@ -192,7 +201,15 @@ class ZoteroFulltextService:
         tag: str | None = None,
         limit: int | None = None,
     ) -> dict[str, Any]:
-        """Search Zotero metadata and indexed fulltext."""
+        """Search Zotero metadata and indexed fulltext.
+
+        Results come in three tiers: an exact citekey match, then items whose
+        creators, title, or year match (from the local index), then Zotero's
+        quick search with its metadata hits ahead of attachment fulltext hits.
+        Zotero returns each matching attachment as its own row, sorted by
+        modification date, so papers that cite a work can fill every slot
+        before the work itself appears; the metadata tier prevents that.
+        """
         normalized_query = query.strip()
         if not normalized_query:
             return {
@@ -204,44 +221,51 @@ class ZoteroFulltextService:
 
         self.refresh_metadata()
         result_limit = max(1, min(25, limit or self.settings.default_search_limit))
-        raw_results = self.client.search_items(
-            normalized_query,
-            collection=collection,
-            tag=tag,
-            limit=min(100, max(result_limit * 3, result_limit)),
-        )
-
-        exact_match = self.index.get_by_citekey(normalized_query)
         results: list[dict[str, Any]] = []
         seen_item_keys: set[str] = set()
+
+        def add(record: ItemRecord, match_source: str) -> None:
+            if record.item_key in seen_item_keys or len(results) >= result_limit:
+                return
+            seen_item_keys.add(record.item_key)
+            results.append({**self._item_summary(record), "match_source": match_source})
+
+        exact_match = self.index.get_by_citekey(normalized_query)
         if exact_match is not None and self._record_matches_filters(
             exact_match,
             collection=collection,
             tag=tag,
         ):
-            seen_item_keys.add(exact_match.item_key)
-            results.append({**self._item_summary(exact_match), "match_source": "citekey"})
+            add(exact_match, "citekey")
 
-        for raw_result in raw_results:
-            data = raw_result.get("data", raw_result)
-            if not isinstance(data, dict):
-                continue
-            item_type = str(data.get("itemType", "") or "")
-            item_key = (
-                str(data.get("parentItem", "") or "")
-                if item_type == "attachment"
-                else str(data.get("key", "") or "")
-            )
-            if not item_key or item_key in seen_item_keys:
-                continue
-            record = self.index.items_by_key.get(item_key)
-            if record is None:
-                continue
-            seen_item_keys.add(item_key)
-            match_source = "attachment" if item_type == "attachment" else "metadata"
-            results.append({**self._item_summary(record), "match_source": match_source})
+        for record in self.index.metadata_matches(normalized_query):
             if len(results) >= result_limit:
                 break
+            if self._record_matches_filters(record, collection=collection, tag=tag):
+                add(record, "metadata")
+
+        if len(results) < result_limit:
+            raw_results = self.client.search_items(
+                normalized_query,
+                collection=collection,
+                tag=tag,
+                limit=min(100, max(result_limit * 3, result_limit)),
+            )
+            metadata_hits: list[ItemRecord] = []
+            attachment_hits: list[ItemRecord] = []
+            for raw_result in raw_results:
+                data = raw_result.get("data", raw_result)
+                if not isinstance(data, dict):
+                    continue
+                is_attachment = str(data.get("itemType", "") or "") == "attachment"
+                item_key = str(data.get("parentItem" if is_attachment else "key", "") or "")
+                record = self.index.items_by_key.get(item_key) if item_key else None
+                if record is not None:
+                    (attachment_hits if is_attachment else metadata_hits).append(record)
+            for record in metadata_hits:
+                add(record, "metadata")
+            for record in attachment_hits:
+                add(record, "attachment")
 
         return {
             "source": "zotero-local",

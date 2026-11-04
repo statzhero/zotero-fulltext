@@ -65,7 +65,8 @@ def create_server(
         annotations=tool_annotations,
         description=(
             "Look up a Zotero item by its exact citekey (a single token with no spaces, "
-            "e.g. 'atz2022' not 'atz 2022'). Use this first when you know the citekey."
+            "e.g. 'atz2022' not 'atz 2022'). Use this first when you know the citekey. "
+            "A miss returns `candidates`: near keys (same surname, year within one) to try next."
         ),
     )
     def lookup(citekey: str) -> dict[str, Any]:
@@ -75,7 +76,9 @@ def create_server(
         name="search",
         annotations=tool_annotations,
         description=(
-            "Search Zotero metadata and indexed fulltext by keywords. "
+            "To check whether a paper is in the library, search by author surnames "
+            "(and year) or use `lookup`; a miss on a topical query does not show the "
+            "paper is absent. Searches metadata first, then indexed fulltext. "
             "For a known citekey (e.g. 'atz2022'), use `lookup` instead."
         ),
     )

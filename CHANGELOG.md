@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+- Fix: `search` now finds a paper by its authors. Zotero's quick search returns every matching attachment as its own row, newest first, so the fulltext of papers citing a work could fill all result slots before the work itself appeared. `search("Leuz Wysocki")` returned 25 citing papers and no Leuz and Wysocki (2016).
+- `search` first matches creator surnames, title words, and year against the local index, ignoring case and diacritics (`Cetin` finds `Çetin`). Matching is per word, so a query that mixes surnames, a year, and topic words still finds the item. These `metadata` hits rank above Zotero's fulltext hits, and Zotero's own metadata hits now rank above its `attachment` hits.
+- `lookup` misses now return `candidates`: near keys with the same surname stem and a year within one. `lookup("leuz2016a")` suggests `leuz2016`. `found` stays `false`.
+- Tool descriptions, skills, and slash commands tell agents to search by author surnames before concluding a paper is absent, and to report a paper as absent only after both `lookup` and an author search miss.
+
 ## 0.5.1
 
 - Fix: when Zotero's library version moves backwards (a restored, reset, or migrated database), the server now rebuilds its index. Previously Zotero answered "no changes" to every check, so new and edited items stayed invisible until the version counter caught up.

@@ -107,7 +107,7 @@ The server is intentionally simple and read-only. It relies on Zotero's own sear
 - All outputs are bounded by default: 10 search hits, 80 paragraphs with a character budget, 20 fulltext matches.
 - Item results include `item_uri` and `fulltext_uri` so clients can attach standard `zotero://...` resources directly.
 - Creator roles (author, editor, translator, etc.) are preserved and grouped in results.
-- If a lookup finds no citekey, it returns `found=false`. If a search finds nothing, it returns `results=[]`. There is no web fallback.
+- If a lookup finds no citekey, it returns `found=false` with `candidates`, near keys to try. If a search finds nothing, it returns `results=[]`. There is no web fallback.
 
 ## Tools
 
@@ -123,9 +123,17 @@ Exact citekey lookup. Citekeys are resolved in order:
 
 If an item later gains a real citekey, the generated key is kept as an alias.
 
+A miss returns `found=false` and up to ten `candidates`: items whose citekey or first author shares the surname stem and whose year is within one. `lookup("leuz2016a")` suggests `leuz2016`.
+
 **`search(query, collection?, tag?, limit?)`**
 
-Searches Zotero with `qmode=everything`, collapses attachment hits to parent items, and ranks exact citekey matches first.
+Ranks results in three tiers, and each result carries a `match_source`:
+
+1. `citekey`: the query is an exact citekey.
+2. `metadata`: creator surnames, title words, or year match, from the local index. Matching is per word and ignores case and diacritics (`Cetin` finds `Çetin`). An item qualifies when a surname matches, or when every query word matches its title, creators, or year, so `Leuz Wysocki 2016 real-effects review` still finds Leuz and Wysocki (2016).
+3. Zotero's quick search (`qmode=everything`) fills the remaining slots, metadata hits before attachment fulltext hits (`attachment`), which are collapsed to their parent items.
+
+To check whether a paper is in the library, search by author surnames and year. Topic words mostly hit the fulltext of papers that cite the work.
 
 **`collections()`**
 

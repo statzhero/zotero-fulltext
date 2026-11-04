@@ -17,12 +17,66 @@ _CITATION_KEY_LINE_RE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 _YEAR_RE = re.compile(r"(19|20)\d{2}")
+_YEAR_TOKEN_RE = re.compile(r"(?:19|20)\d{2}")
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+# Letter runs (any script) or digit runs, so "real-effects" and "leuz2016"
+# both split into words.
+_TOKEN_RE = re.compile(r"[^\W\d_]+|\d+")
+# Letters that NFKD leaves intact but readers type in plain ASCII.
+_FOLD_TABLE = str.maketrans(
+    {"ø": "o", "æ": "ae", "œ": "oe", "đ": "d", "ð": "d", "ł": "l", "ı": "i", "þ": "th"}
+)
+# Function words and name particles that would otherwise match half the
+# library ("of", "the", "de", "van").
+_SEARCH_STOPWORDS = frozenset(
+    {
+        "a", "an", "and", "as", "at", "by", "for", "from", "in", "into", "is",
+        "of", "on", "or", "the", "to", "vs", "via", "with",
+        "da", "de", "del", "der", "di", "du", "la", "le", "van", "von",
+    }
+)
+_MAX_NEAR_CITEKEYS = 10
 
 
 def normalize_lookup_key(value: str) -> str:
     """Normalize a citekey for case-insensitive lookup."""
     return value.strip().casefold()
+
+
+def fold_text(value: str) -> str:
+    """Casefold and strip diacritics, so 'Çetin' compares equal to 'cetin'."""
+    decomposed = unicodedata.normalize("NFKD", value.casefold())
+    stripped = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return stripped.translate(_FOLD_TABLE)
+
+
+def search_tokens(value: str) -> list[str]:
+    """Split text into folded word and number tokens."""
+    return _TOKEN_RE.findall(fold_text(value))
+
+
+def query_terms(query: str) -> list[str]:
+    """Return the distinct, meaningful search tokens of a query, in order."""
+    terms: list[str] = []
+    for token in search_tokens(query):
+        if token in _SEARCH_STOPWORDS or (len(token) < 2 and not token.isdigit()):
+            continue
+        if token not in terms:
+            terms.append(token)
+    return terms
+
+
+def citekey_parts(citekey: str) -> tuple[str, int | None]:
+    """Split a citekey into a folded surname stem and a year.
+
+    The stem is the letters before the first digit ('bar-yosef2019' gives
+    'baryosef'); the year is the first four-digit year anywhere in the key.
+    """
+    folded = fold_text(citekey.strip())
+    head = re.split(r"\d", folded, maxsplit=1)[0]
+    stem = "".join(_TOKEN_RE.findall(head))
+    year_match = _YEAR_RE.search(folded)
+    return stem, None if year_match is None else int(year_match.group(0))
 
 
 def extract_preferred_citation_key(data: dict[str, object]) -> str | None:
@@ -310,6 +364,77 @@ class MetadataIndex:
         item_key = self.citekey_to_item_key.get(normalize_lookup_key(citekey))
         return None if item_key is None else self.items_by_key.get(item_key)
 
+    def metadata_matches(self, query: str) -> list[ItemRecord]:
+        """Rank items whose creators, title, or year match query tokens.
+
+        Tokens match whole words, ignoring case and diacritics. Matching is
+        per token, so a query that mixes surnames, a year, and topic words
+        still finds the item through whichever tokens hit. An item qualifies
+        when a creator surname matches, or when every query token matches
+        its title, creators, or year. Title-only partial matches are left to
+        Zotero's own search, since a single common word would flood the
+        results. A bare year matches nothing on its own.
+        """
+        terms = query_terms(query)
+        years = {term for term in terms if _YEAR_TOKEN_RE.fullmatch(term)}
+        words = [term for term in terms if term not in years]
+        if not words:
+            return []
+
+        ranked: list[tuple[tuple[int, int, int, int, str], ItemRecord]] = []
+        for record in list(self.items_by_key.values()):
+            creator_tokens: set[str] = set()
+            for creator in record.creators:
+                creator_tokens.update(search_tokens(creator.get("name", "")))
+            creator_hits = {word for word in words if word in creator_tokens}
+            title_tokens = set(search_tokens(record.title))
+            title_hits = {word for word in words if word in title_tokens}
+            year_hit = record.year in years
+            matched = len(creator_hits | title_hits) + int(year_hit)
+            if not creator_hits and not (title_hits and matched == len(terms)):
+                continue
+            first_author = _first_author_tokens(record)
+            first_author_hit = int(any(word in first_author for word in creator_hits))
+            year_value = int(record.year) if record.year and record.year.isdigit() else 0
+            sort_key = (
+                -matched,
+                -len(creator_hits),
+                -first_author_hit,
+                -year_value,
+                record.citation_key.casefold(),
+            )
+            ranked.append((sort_key, record))
+        ranked.sort(key=lambda pair: pair[0])
+        return [record for _, record in ranked]
+
+    def near_citekeys(self, citekey: str) -> list[ItemRecord]:
+        """Suggest items whose key is close to a citekey that did not resolve.
+
+        A candidate shares the surname stem (through its citekey, an alias,
+        or its first author) and lies within one year, so 'leuz2016a'
+        suggests 'leuz2016', 'leuz2016b', and 'leuz2017'.
+        """
+        stem, year = citekey_parts(citekey)
+        if not stem:
+            return []
+        ranked: list[tuple[tuple[int, int, str], ItemRecord]] = []
+        for record in list(self.items_by_key.values()):
+            key_parts = [citekey_parts(key) for key in [record.citation_key, *record.aliases]]
+            key_stem_hit = any(key_stem == stem for key_stem, _ in key_parts)
+            author_hit = "".join(_first_author_tokens(record)) == stem
+            if not key_stem_hit and not author_hit:
+                continue
+            record_year = int(record.year) if record.year and record.year.isdigit() else None
+            if record_year is None:
+                record_year = next((key_year for _, key_year in key_parts if key_year), None)
+            if year is not None and (record_year is None or abs(record_year - year) > 1):
+                continue
+            year_gap = 0 if year is None or record_year is None else abs(record_year - year)
+            sort_key = (year_gap, int(not key_stem_hit), record.citation_key.casefold())
+            ranked.append((sort_key, record))
+        ranked.sort(key=lambda pair: pair[0])
+        return [record for _, record in ranked[:_MAX_NEAR_CITEKEYS]]
+
     def attachment_candidates(self, parent_item_key: str) -> list[AttachmentRecord]:
         """Return readable attachment candidates for a parent item."""
         # Snapshot first: readers on other threads must not iterate the dict
@@ -489,6 +614,12 @@ class MetadataIndex:
 def _item_version(raw_item: dict[str, object], data: dict[str, object]) -> int | None:
     raw_version = raw_item.get("version", data.get("version"))
     return None if raw_version in (None, "") else int(raw_version)
+
+
+def _first_author_tokens(record: ItemRecord) -> list[str]:
+    authors = [creator for creator in record.creators if creator.get("role") == "author"]
+    first = (authors or record.creators or [{}])[0]
+    return search_tokens(first.get("name", ""))
 
 
 def _attachment_priority(attachment: AttachmentRecord) -> tuple[int, str]:
