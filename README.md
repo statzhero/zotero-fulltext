@@ -52,6 +52,8 @@ Without the plugin, all the same functionality is available through the MCP tool
 
 This installs the MCP server and slash commands. Run `/mcp` to confirm the server is connected.
 
+Claude Code does not auto-update third-party marketplaces by default. To get new versions automatically, run `/plugin`, open the **Marketplaces** tab, select `zotero-fulltext`, and choose **Enable auto-update**. Updates install in the background and load in your next session.
+
 ### Claude Desktop
 
 Requires [uv](https://docs.astral.sh/uv/getting-started/installation/) (install with `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`).
