@@ -2,10 +2,9 @@
 
 ## 0.6.0
 
-- Fix: `search` now finds a paper by its authors. Zotero's quick search returns every matching attachment as its own row, newest first, so the fulltext of papers citing a work could fill all result slots before the work itself appeared. `search("Leuz Wysocki")` returned 25 citing papers and no Leuz and Wysocki (2016).
-- `search` first matches creator surnames, title words, and year against the local index, ignoring case and diacritics (`Cetin` finds `Çetin`). Matching is per word, so a query that mixes surnames, a year, and topic words still finds the item. These `metadata` hits rank above Zotero's fulltext hits, and Zotero's own metadata hits now rank above its `attachment` hits.
-- `lookup` misses now return `candidates`: near keys with the same surname stem and a year within one. `lookup("leuz2016a")` suggests `leuz2016`. `found` stays `false`.
-- Tool descriptions, skills, and slash commands tell agents to search by author surnames before concluding a paper is absent, and to report a paper as absent only after both `lookup` and an author search miss.
+- Fix: `search` could miss a paper searched by its authors, because fulltext hits from papers citing it filled every result slot. Matches on creators, title, and year now rank first, ignoring case and diacritics.
+- `lookup` misses return `candidates`, near citekeys to try.
+- Tool descriptions, skills, and commands tell agents to check `lookup` and an author search before reporting a paper as absent.
 
 ## 0.5.1
 

@@ -123,17 +123,11 @@ Exact citekey lookup. Citekeys are resolved in order:
 
 If an item later gains a real citekey, the generated key is kept as an alias.
 
-A miss returns `found=false` and up to ten `candidates`: items whose citekey or first author shares the surname stem and whose year is within one. `lookup("leuz2016a")` suggests `leuz2016`.
+A miss returns `found=false` and `candidates`, near citekeys with the same surname and a year within one.
 
 **`search(query, collection?, tag?, limit?)`**
 
-Ranks results in three tiers, and each result carries a `match_source`:
-
-1. `citekey`: the query is an exact citekey.
-2. `metadata`: creator surnames, title words, or year match, from the local index. Matching is per word and ignores case and diacritics (`Cetin` finds `Çetin`). An item qualifies when a surname matches, or when every query word matches its title, creators, or year, so `Leuz Wysocki 2016 real-effects review` still finds Leuz and Wysocki (2016).
-3. Zotero's quick search (`qmode=everything`) fills the remaining slots, metadata hits before attachment fulltext hits (`attachment`), which are collapsed to their parent items.
-
-To check whether a paper is in the library, search by author surnames and year. Topic words mostly hit the fulltext of papers that cite the work.
+Matches creator surnames, title words, and year first, ignoring case and diacritics, then fills the remaining slots with Zotero's quick search (`qmode=everything`). Each result carries a `match_source`: `citekey`, `metadata`, or `attachment`. To check whether a paper is in the library, search by author surnames and year.
 
 **`collections()`**
 

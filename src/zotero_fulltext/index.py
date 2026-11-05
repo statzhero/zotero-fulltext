@@ -19,7 +19,7 @@ _CITATION_KEY_LINE_RE = re.compile(
 _YEAR_RE = re.compile(r"(19|20)\d{2}")
 _YEAR_TOKEN_RE = re.compile(r"(?:19|20)\d{2}")
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
-# Letter runs (any script) or digit runs, so "real-effects" and "leuz2016"
+# Letter runs (any script) or digit runs, so "real-effects" and "smith2016"
 # both split into words.
 _TOKEN_RE = re.compile(r"[^\W\d_]+|\d+")
 # Letters that NFKD leaves intact but readers type in plain ASCII.
@@ -44,7 +44,7 @@ def normalize_lookup_key(value: str) -> str:
 
 
 def fold_text(value: str) -> str:
-    """Casefold and strip diacritics, so 'Çetin' compares equal to 'cetin'."""
+    """Casefold and strip diacritics, so 'Müller' compares equal to 'muller'."""
     decomposed = unicodedata.normalize("NFKD", value.casefold())
     stripped = "".join(char for char in decomposed if not unicodedata.combining(char))
     return stripped.translate(_FOLD_TABLE)
@@ -411,8 +411,8 @@ class MetadataIndex:
         """Suggest items whose key is close to a citekey that did not resolve.
 
         A candidate shares the surname stem (through its citekey, an alias,
-        or its first author) and lies within one year, so 'leuz2016a'
-        suggests 'leuz2016', 'leuz2016b', and 'leuz2017'.
+        or its first author) and lies within one year, so 'smith2016a'
+        suggests 'smith2016', 'smith2016b', and 'smith2017'.
         """
         stem, year = citekey_parts(citekey)
         if not stem:
