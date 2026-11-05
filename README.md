@@ -78,7 +78,7 @@ Save the file, then fully quit and reopen Claude Desktop (closing the window is 
 
 ```bash
 codex plugin marketplace add statzhero/zotero-fulltext
-codex plugin install zotero
+codex plugin add zotero@zotero-fulltext
 ```
 
 This installs the MCP server and four skills (`find`, `lookup`, `read`, `within`).
