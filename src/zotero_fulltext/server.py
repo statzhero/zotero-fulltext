@@ -107,7 +107,12 @@ def create_server(
     @mcp.tool(
         name="fulltext",
         annotations=tool_annotations,
-        description="Return numbered paragraphs for a Zotero item's indexed fulltext. The citekey is a single token with no spaces (e.g. 'atz2022').",
+        description=(
+            "Return numbered paragraphs for a Zotero item's indexed fulltext. The citekey "
+            "is a single token with no spaces (e.g. 'atz2022'). If `partial_index` is true, "
+            "Zotero indexed only `indexed_pages` of `total_pages`; the rest of the document "
+            "is unavailable here, so say which pages you read."
+        ),
     )
     def fulltext(
         citekey: str,
@@ -119,7 +124,12 @@ def create_server(
     @mcp.tool(
         name="fulltext_search",
         annotations=tool_annotations,
-        description="Search within a Zotero item's indexed fulltext and return local paragraph context. The citekey is a single token with no spaces (e.g. 'atz2022').",
+        description=(
+            "Search within a Zotero item's indexed fulltext and return local paragraph "
+            "context. The citekey is a single token with no spaces (e.g. 'atz2022'). If "
+            "`partial_index` is true, only `indexed_pages` of `total_pages` were searched, "
+            "so no match does not show the text is absent."
+        ),
     )
     def fulltext_search(
         citekey: str,

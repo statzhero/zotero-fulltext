@@ -149,10 +149,11 @@ Fulltext responses include paging metadata:
 | `max_chars` | Character budget used for this response |
 | `truncated` | Whether more paragraph chunks remain |
 | `next_offset` | Offset to pass into the next `fulltext` call, or `null` when complete |
+| `partial_index` | `true` when Zotero indexed only part of the file (it stops at 100 pages by default); the response then adds `indexed_pages` and `total_pages` |
 
 **`fulltext_search(citekey, query, before?, after?, limit?)`**
 
-Searches within a single item's paragraphized fulltext and returns matching paragraphs with surrounding context.
+Searches within a single item's paragraphized fulltext and returns matching paragraphs with surrounding context. The response carries the same `partial_index` and page-count fields as `fulltext`.
 
 ## Environment Variables
 

@@ -14,3 +14,4 @@ Rules:
 - Return the numbered paragraphs from the tool result.
 - Do not summarize unless the user also asked for a summary.
 - If the item is missing or has no indexed fulltext, say that clearly without inventing content.
+- If the result has `partial_index: true`, tell the user that Zotero indexed only `indexed_pages` of `total_pages` and that the remaining pages were not read.

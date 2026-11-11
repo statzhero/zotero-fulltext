@@ -44,6 +44,63 @@ class AttachmentRecord:
         )
 
 
+@dataclass(frozen=True)
+class IndexedText:
+    """Paragraphs of one attachment plus how much of the file Zotero indexed.
+
+    Zotero stops indexing at a page limit for PDFs (100 by default) and a
+    character limit for text files, and reports both the indexed and the
+    total count. The counts are ``None`` when Zotero does not report them.
+    """
+
+    paragraphs: list[str]
+    indexed_pages: int | None = None
+    total_pages: int | None = None
+    indexed_chars: int | None = None
+    total_chars: int | None = None
+
+    @classmethod
+    def from_payload(cls, paragraphs: list[str], payload: dict[str, object]) -> "IndexedText":
+        """Build from a Zotero ``/fulltext`` response."""
+        return cls(
+            paragraphs=paragraphs,
+            indexed_pages=_optional_count(payload.get("indexedPages")),
+            total_pages=_optional_count(payload.get("totalPages")),
+            indexed_chars=_optional_count(payload.get("indexedChars")),
+            total_chars=_optional_count(payload.get("totalChars")),
+        )
+
+    @property
+    def partial(self) -> bool:
+        """Return True when Zotero indexed only part of the file."""
+        return _below(self.indexed_pages, self.total_pages) or _below(
+            self.indexed_chars, self.total_chars
+        )
+
+    def coverage(self) -> dict[str, object]:
+        """Response fields for index coverage; counts only for a partial index."""
+        fields: dict[str, object] = {"partial_index": self.partial}
+        if self.partial:
+            for name in ("indexed_pages", "total_pages", "indexed_chars", "total_chars"):
+                value = getattr(self, name)
+                if value is not None:
+                    fields[name] = value
+        return fields
+
+
+def _optional_count(value: object) -> int | None:
+    if isinstance(value, bool) or value in (None, ""):
+        return None
+    try:
+        return int(value)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return None
+
+
+def _below(indexed: int | None, total: int | None) -> bool:
+    return indexed is not None and total is not None and indexed < total
+
+
 @dataclass
 class ItemRecord:
     """Metadata about a top-level Zotero item."""

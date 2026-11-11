@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Fix: a PDF longer than Zotero's indexing limit (100 pages by default) read as if it were complete.
+
 ## 0.6.0
 
 - Fix: `search` could miss a paper searched by its authors, because fulltext hits from papers citing it filled every result slot. Matches on creators, title, and year now rank first, ignoring case and diacritics.

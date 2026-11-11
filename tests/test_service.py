@@ -547,6 +547,65 @@ class ZoteroFulltextServiceTest(unittest.TestCase):
             for paragraph in result["paragraphs"]
         ))
 
+    def read_single_attachment(self, payload: dict[str, object]) -> tuple[dict, dict, dict]:
+        """Return a cold read, a warm read, and an in-paper search for one PDF."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            client = FakeClient()
+            index = MetadataIndex.rebuild_from_items(
+                [
+                    make_item("AAA111", title="Book", citation_key="book2020"),
+                    make_attachment("ATTPDF", "AAA111"),
+                ],
+                5,
+            )
+            client.fulltexts["ATTPDF"] = payload
+            service = ZoteroFulltextService(
+                self.make_settings(temp_dir), client=client, index=index
+            )
+            cold = service.fulltext("book2020")
+            warm = service.fulltext("book2020")
+            search = service.fulltext_search("book2020", "chapter")
+        self.assertEqual(client.fulltext_calls, 1)
+        return cold, warm, search
+
+    def test_fulltext_flags_page_capped_index(self) -> None:
+        cold, warm, search = self.read_single_attachment(
+            {"content": "Chapter one.\n\nChapter two.", "indexedPages": 100, "totalPages": 435}
+        )
+        for result in (cold, warm, search):
+            self.assertTrue(result["partial_index"])
+            self.assertEqual(result["indexed_pages"], 100)
+            self.assertEqual(result["total_pages"], 435)
+        # Paging is complete even though the index is not.
+        self.assertFalse(cold["truncated"])
+        self.assertIsNone(cold["next_offset"])
+
+    def test_fulltext_flags_character_capped_index(self) -> None:
+        cold, _, search = self.read_single_attachment(
+            {"content": "Chapter one.", "indexedChars": 500000, "totalChars": 750000}
+        )
+        for result in (cold, search):
+            self.assertTrue(result["partial_index"])
+            self.assertEqual(result["indexed_chars"], 500000)
+            self.assertEqual(result["total_chars"], 750000)
+            self.assertNotIn("indexed_pages", result)
+
+    def test_fulltext_reports_complete_index(self) -> None:
+        cold, warm, search = self.read_single_attachment(
+            {"content": "Chapter one.", "indexedPages": 12, "totalPages": 12}
+        )
+        for result in (cold, warm, search):
+            self.assertFalse(result["partial_index"])
+            self.assertNotIn("indexed_pages", result)
+            self.assertNotIn("total_pages", result)
+
+    def test_fulltext_without_reported_counts_is_not_partial(self) -> None:
+        cold, _, search = self.read_single_attachment({"content": "Chapter one."})
+        for result in (cold, search):
+            self.assertFalse(result["partial_index"])
+            self.assertNotIn("indexed_pages", result)
+            self.assertNotIn("total_chars", result)
+
 
 if __name__ == "__main__":
     unittest.main()

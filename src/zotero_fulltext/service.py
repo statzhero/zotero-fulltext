@@ -11,7 +11,7 @@ from .client import ZoteroClient, batched
 from .config import Settings
 from .errors import NoFulltextError, ZoteroClientError
 from .index import MetadataIndex
-from .models import AttachmentRecord, ItemRecord
+from .models import AttachmentRecord, IndexedText, ItemRecord
 from .text import extract_paragraphs, paragraph_slice, search_paragraphs
 
 
@@ -28,7 +28,7 @@ class ZoteroFulltextService:
         self.settings = settings or Settings.from_env()
         self.client = client or ZoteroClient(self.settings)
         self.index = index or MetadataIndex.load(self.settings.metadata_path)
-        self.paragraph_cache: TTLCache[str, list[str]] = TTLCache(
+        self.paragraph_cache: TTLCache[str, IndexedText] = TTLCache(
             self.settings.paragraph_cache_size,
             self.settings.paragraph_cache_ttl_sec,
         )
@@ -315,8 +315,8 @@ class ZoteroFulltextService:
                 "citekey": citekey,
                 "paragraphs": [],
             }
-        paragraphs, error_code = self._paragraphs_for_record(record)
-        if paragraphs is None:
+        indexed, error_code = self._text_for_record(record)
+        if indexed is None:
             return {
                 "source": "zotero-local",
                 "found": True,
@@ -326,6 +326,7 @@ class ZoteroFulltextService:
                 "item": self._item_summary(record),
                 "paragraphs": [],
             }
+        paragraphs = indexed.paragraphs
         paragraph_limit = max(1, min(200, limit or self.settings.default_fulltext_limit))
         safe_offset = max(0, offset)
         returned_paragraphs = paragraph_slice(
@@ -349,6 +350,7 @@ class ZoteroFulltextService:
             "max_chars": max(1, self.settings.max_fulltext_chars),
             "truncated": next_offset < len(paragraphs),
             "next_offset": next_offset if next_offset < len(paragraphs) else None,
+            **indexed.coverage(),
             "paragraphs": returned_paragraphs,
         }
 
@@ -372,8 +374,8 @@ class ZoteroFulltextService:
                 "query": query,
                 "matches": [],
             }
-        paragraphs, error_code = self._paragraphs_for_record(record)
-        if paragraphs is None:
+        indexed, error_code = self._text_for_record(record)
+        if indexed is None:
             return {
                 "source": "zotero-local",
                 "found": True,
@@ -383,6 +385,7 @@ class ZoteroFulltextService:
                 "error": error_code,
                 "matches": [],
             }
+        paragraphs = indexed.paragraphs
         context_before = self.settings.default_fulltext_context if before is None else before
         context_after = self.settings.default_fulltext_context if after is None else after
         matches = search_paragraphs(
@@ -399,6 +402,7 @@ class ZoteroFulltextService:
             "query": query,
             "has_fulltext": True,
             "item": self._item_summary(record),
+            **indexed.coverage(),
             "count": len(matches),
             "matches": matches,
         }
@@ -419,7 +423,7 @@ class ZoteroFulltextService:
                 self.index.apply_updates(attachment_children, [], self.index.library_version)
                 self.index.save(self.settings.metadata_path)
 
-    def _paragraphs_for_record(self, record: ItemRecord) -> tuple[list[str] | None, str | None]:
+    def _text_for_record(self, record: ItemRecord) -> tuple[IndexedText | None, str | None]:
         attachment_candidates = self.index.attachment_candidates(record.item_key)
         if not attachment_candidates:
             self.hydrate_item_children(record.item_key)
@@ -440,7 +444,7 @@ class ZoteroFulltextService:
         # supplemental appendix), and they often carry near-identical titles
         # and content types. Pick the one with the most indexed text, which is
         # almost always the main document rather than a supplement.
-        best_paragraphs: list[str] | None = None
+        best: IndexedText | None = None
         best_length = -1
         for attachment in attachment_candidates:
             try:
@@ -455,13 +459,13 @@ class ZoteroFulltextService:
             if not paragraphs:
                 continue
             if len(content) > best_length:
-                best_paragraphs = paragraphs
+                best = IndexedText.from_payload(paragraphs, fulltext)
                 best_length = len(content)
                 record.attachment_key = attachment.item_key
-        if best_paragraphs is None:
+        if best is None:
             return None, "NO_FULLTEXT_INDEX"
-        self.paragraph_cache.set(record.attachment_key, best_paragraphs)
-        return best_paragraphs, None
+        self.paragraph_cache.set(record.attachment_key, best)
+        return best, None
 
     def _record_matches_filters(
         self,
