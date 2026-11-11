@@ -443,9 +443,10 @@ class ZoteroFulltextService:
         # Several attachments can share a parent (e.g. the article plus a
         # supplemental appendix), and they often carry near-identical titles
         # and content types. Pick the one with the most indexed text, which is
-        # almost always the main document rather than a supplement.
+        # almost always the main document rather than a supplement. A PDF
+        # outranks an HTML snapshot, whose page chrome can make it longer.
         best: IndexedText | None = None
-        best_length = -1
+        best_rank = (False, -1)
         for attachment in attachment_candidates:
             try:
                 fulltext = self.client.get_fulltext(attachment.item_key)
@@ -458,9 +459,10 @@ class ZoteroFulltextService:
             )
             if not paragraphs:
                 continue
-            if len(content) > best_length:
+            rank = (attachment.is_pdf(), len(content))
+            if rank > best_rank:
                 best = IndexedText.from_payload(paragraphs, fulltext)
-                best_length = len(content)
+                best_rank = rank
                 record.attachment_key = attachment.item_key
         if best is None:
             return None, "NO_FULLTEXT_INDEX"

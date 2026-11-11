@@ -42,7 +42,9 @@ def make_item(
     }
 
 
-def make_attachment(key: str, parent: str) -> dict[str, object]:
+def make_attachment(
+    key: str, parent: str, *, content_type: str = "application/pdf"
+) -> dict[str, object]:
     return {
         "key": key,
         "version": 1,
@@ -52,7 +54,7 @@ def make_attachment(key: str, parent: str) -> dict[str, object]:
             "itemType": "attachment",
             "parentItem": parent,
             "title": "PDF",
-            "contentType": "application/pdf",
+            "contentType": content_type,
             "linkMode": "imported_file",
         },
     }
@@ -517,6 +519,38 @@ class ZoteroFulltextServiceTest(unittest.TestCase):
         self.assertTrue(result["found"])
         self.assertEqual(result["paragraph_count"], 3)
         self.assertEqual(detail["item"]["attachment_key"], "PAPER")
+
+    def read_pdf_and_snapshot(self, fulltexts: dict[str, dict[str, object]]) -> dict:
+        """Read an item that has a PDF and a longer HTML snapshot."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            client = FakeClient()
+            index = MetadataIndex.rebuild_from_items(
+                [
+                    make_item("AAA111", title="Paper", citation_key="paper2020"),
+                    make_attachment("PDFATT", "AAA111"),
+                    make_attachment("SNAPSH", "AAA111", content_type="text/html"),
+                ],
+                5,
+            )
+            client.fulltexts.update(fulltexts)
+            service = ZoteroFulltextService(
+                self.make_settings(temp_dir), client=client, index=index
+            )
+            service.fulltext("paper2020")
+            return service.lookup("paper2020")
+
+    def test_fulltext_prefers_pdf_over_longer_html_snapshot(self) -> None:
+        detail = self.read_pdf_and_snapshot(
+            {
+                "PDFATT": {"content": "The article."},
+                "SNAPSH": {"content": "Site menu. Sign in. The article. Related links. Footer."},
+            }
+        )
+        self.assertEqual(detail["item"]["attachment_key"], "PDFATT")
+
+    def test_fulltext_falls_back_to_html_when_pdf_is_unindexed(self) -> None:
+        detail = self.read_pdf_and_snapshot({"SNAPSH": {"content": "The article."}})
+        self.assertEqual(detail["item"]["attachment_key"], "SNAPSH")
 
     def test_fulltext_splits_and_caps_large_text_payloads(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

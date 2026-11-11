@@ -153,7 +153,7 @@ Fulltext responses include paging metadata:
 
 **`fulltext_search(citekey, query, before?, after?, limit?)`**
 
-Searches within a single item's paragraphized fulltext and returns matching paragraphs with surrounding context. The response carries the same `partial_index` and page-count fields as `fulltext`.
+Searches within a single item's paragraphized fulltext and returns matching paragraphs with surrounding context. Matching ignores case and diacritics, and finds words broken across lines. The response carries the same `partial_index` and page-count fields as `fulltext`.
 
 ## Environment Variables
 

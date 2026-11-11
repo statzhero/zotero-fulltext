@@ -50,6 +50,23 @@ class TextHelpersTest(unittest.TestCase):
         self.assertTrue(paragraph_matches("Correlated forecast errors matter.", "correlated matter"))
         self.assertFalse(paragraph_matches("Correlated forecast errors matter.", "analyst career"))
 
+    def test_paragraph_matches_words_broken_across_lines(self) -> None:
+        self.assertTrue(paragraph_matches("decreases a priori sus pect. A decrease", "suspect"))
+        self.assertTrue(paragraph_matches("a test of robust- ness to outliers", "robustness"))
+        self.assertTrue(paragraph_matches("the self-reported measure", "self reported measure"))
+        self.assertTrue(paragraph_matches("earn ings fore casts", "forecasts earnings"))
+        # A loose match starts at a word start and never crosses punctuation.
+        self.assertFalse(paragraph_matches("this in turn", "sin"))
+        self.assertFalse(paragraph_matches("income versus. Pect remains", "suspect"))
+
+    def test_paragraph_matches_ignores_diacritics_and_ligatures(self) -> None:
+        self.assertTrue(paragraph_matches("Müller and Señor report \ufb01nancial e\ufb00ects", "muller financial effects"))
+        self.assertTrue(paragraph_matches("a naive estimator", "naïve"))
+
+    def test_paragraph_matches_rejects_empty_query(self) -> None:
+        self.assertFalse(paragraph_matches("Some text.", "   "))
+        self.assertFalse(paragraph_matches("Some text.", ""))
+
     def test_search_paragraphs_includes_context(self) -> None:
         paragraphs = [
             "Intro",

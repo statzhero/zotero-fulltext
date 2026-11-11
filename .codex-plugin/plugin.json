@@ -1,6 +1,6 @@
 {
   "name": "zotero",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Codex skills and MCP server for zotero-fulltext with citekeys and efficient fulltext access.",
   "author": {
     "name": "Ulrich Atz",

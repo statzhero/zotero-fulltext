@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.2
+
+- `fulltext_search` finds words that the PDF text breaks across lines ("sus pect", "robust- ness") and ignores diacritics and ligatures.
+- When an item has a PDF and an HTML snapshot, `fulltext` reads the PDF.
+
 ## 0.6.1
 
 - Fix: a PDF longer than Zotero's indexing limit (100 pages by default) read as if it were complete.

@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import re
+
+from .index import fold_text
 
 
 _WHITESPACE_RE = re.compile(r"\s+")
 _PARAGRAPH_SPLIT_RE = re.compile(r"\n\s*\n+")
+# What a line break can leave inside a word: whitespace, and the hyphen of a
+# word hyphenated at the line end ("sus pect", "robust- ness").
+_WORD_GAP = r"[\s\-\u2010\u2011\u00ad]*"
 DEFAULT_MAX_PARAGRAPH_CHARS = 1800
 
 
@@ -75,24 +81,53 @@ def paragraph_slice(
     return payload
 
 
-def _normalized_query(query: str) -> str:
-    return normalize_whitespace(query).casefold()
+def _fold(text: str) -> str:
+    """Fold case, diacritics, and ligatures, and collapse whitespace."""
+    return normalize_whitespace(fold_text(text))
+
+
+def _loose_pattern(folded: str) -> re.Pattern[str] | None:
+    """Match the letters and digits of ``folded`` from a word start.
+
+    Whitespace and hyphens may sit between any two of them, so a word that
+    the PDF text broke across lines still matches.
+    """
+    chars = [char for char in folded if char.isalnum()]
+    if not chars:
+        return None
+    return re.compile(r"(?<![^\W_])" + _WORD_GAP.join(re.escape(char) for char in chars))
+
+
+@dataclass(frozen=True)
+class _Query:
+    phrase: str
+    phrase_pattern: re.Pattern[str] | None
+    terms: tuple[tuple[str, re.Pattern[str] | None], ...]
+
+    @classmethod
+    def compile(cls, query: str) -> "_Query":
+        phrase = _fold(query)
+        terms = tuple((term, _loose_pattern(term)) for term in phrase.split(" ") if term)
+        return cls(phrase, _loose_pattern(phrase), terms)
+
+    def matches(self, text: str) -> bool:
+        """Match the whole phrase, or else every term somewhere in ``text``."""
+        if not self.phrase:
+            return False
+        folded = _fold(text)
+        if self.phrase in folded:
+            return True
+        if self.phrase_pattern is not None and self.phrase_pattern.search(folded):
+            return True
+        return all(
+            term in folded or (pattern is not None and pattern.search(folded) is not None)
+            for term, pattern in self.terms
+        )
 
 
 def paragraph_matches(text: str, query: str) -> bool:
-    """Case-insensitive paragraph match."""
-    normalized_query = _normalized_query(query)
-    terms = [term for term in normalized_query.split(" ") if term]
-    return _paragraph_matches_normalized(text, normalized_query, terms)
-
-
-def _paragraph_matches_normalized(text: str, normalized_query: str, terms: list[str]) -> bool:
-    normalized_text = normalize_whitespace(text).casefold()
-    if not normalized_query:
-        return False
-    if normalized_query in normalized_text:
-        return True
-    return bool(terms) and all(term in normalized_text for term in terms)
+    """Match a paragraph ignoring case, diacritics, ligatures, and line-broken words."""
+    return _Query.compile(query).matches(text)
 
 
 def search_paragraphs(
@@ -107,11 +142,10 @@ def search_paragraphs(
     safe_before = max(0, before)
     safe_after = max(0, after)
     safe_limit = max(1, limit)
-    normalized_query = _normalized_query(query)
-    terms = [term for term in normalized_query.split(" ") if term]
+    compiled = _Query.compile(query)
     results: list[dict[str, object]] = []
     for index, paragraph in enumerate(paragraphs):
-        if not _paragraph_matches_normalized(paragraph, normalized_query, terms):
+        if not compiled.matches(paragraph):
             continue
         context_before = [
             {"paragraph": context_index + 1, "text": paragraphs[context_index]}
